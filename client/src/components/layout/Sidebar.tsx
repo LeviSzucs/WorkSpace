@@ -11,18 +11,25 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useRole } from "@/hooks/use-role";
 
-const NAV_ITEMS = [
-  { href: "/app", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/app/rota", label: "Rota", icon: CalendarDays },
-  { href: "/app/rota-builder", label: "Rota Builder", icon: Users },
-  { href: "/app/holidays", label: "Holidays", icon: Plane },
-  { href: "/app/holidays/manage", label: "Manage Holidays", icon: Settings },
-  { href: "/app/admin", label: "Admin", icon: ShieldAlert },
+const ALL_NAV_ITEMS = [
+  { href: "/app", label: "Dashboard", icon: LayoutDashboard, requiredRoles: ['ORG_ADMIN', 'HEAD_OFFICE', 'VENUE_MANAGER', 'SUPERVISOR', 'STAFF'] },
+  { href: "/app/rota", label: "My Rota", icon: CalendarDays, requiredRoles: ['STAFF', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  { href: "/app/rota-builder", label: "Rota Builder", icon: Users, requiredRoles: ['ORG_ADMIN', 'HEAD_OFFICE', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  { href: "/app/holidays", label: "My Holidays", icon: Plane, requiredRoles: ['STAFF', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  { href: "/app/holidays/manage", label: "Manage Holidays", icon: Settings, requiredRoles: ['ORG_ADMIN', 'HEAD_OFFICE', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  { href: "/app/admin", label: "Admin", icon: ShieldAlert, requiredRoles: ['ORG_ADMIN', 'HEAD_OFFICE'] },
 ];
 
 export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean, setMobileOpen: (v: boolean) => void }) {
   const [location] = useLocation();
+  const { role, isLoading } = useRole();
+
+  const NAV_ITEMS = ALL_NAV_ITEMS.filter(item => {
+    if (isLoading || !role) return false;
+    return item.requiredRoles.includes(role);
+  });
 
   const NavContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-zinc-200">

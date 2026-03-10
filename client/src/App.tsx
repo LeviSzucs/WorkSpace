@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { RoleBasedRedirect } from "@/components/RoleBasedRedirect";
 
 // Layouts
 import { AppLayout } from "./components/layout/AppLayout";
@@ -17,21 +18,25 @@ import Rota from "./pages/app/rota";
 import Holidays from "./pages/app/holidays";
 import HolidaysManage from "./pages/app/holidays-manage";
 import Admin from "./pages/app/admin";
+import NoAccess from "./pages/app/no-access";
 
 function AppRoutes() {
   return (
     <ProtectedRoute>
-      <AppLayout>
-        <Switch>
-          <Route path="/app" component={Dashboard} />
-          <Route path="/app/rota-builder" component={RotaBuilder} />
-          <Route path="/app/rota" component={Rota} />
-          <Route path="/app/holidays" component={Holidays} />
-          <Route path="/app/holidays/manage" component={HolidaysManage} />
-          <Route path="/app/admin" component={Admin} />
-          <Route component={NotFound} />
-        </Switch>
-      </AppLayout>
+      <RoleBasedRedirect>
+        <AppLayout>
+          <Switch>
+            <Route path="/app" component={Dashboard} />
+            <Route path="/app/rota-builder" component={RotaBuilder} />
+            <Route path="/app/rota" component={Rota} />
+            <Route path="/app/holidays" component={Holidays} />
+            <Route path="/app/holidays/manage" component={HolidaysManage} />
+            <Route path="/app/admin" component={Admin} />
+            <Route path="/app/no-access" component={NoAccess} />
+            <Route component={NotFound} />
+          </Switch>
+        </AppLayout>
+      </RoleBasedRedirect>
     </ProtectedRoute>
   );
 }
