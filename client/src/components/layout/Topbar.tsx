@@ -1,36 +1,73 @@
-import { Bell, Search, Menu } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-export function Topbar({ onMenuClick, title }: { onMenuClick: () => void, title: string }) {
+export function Topbar({
+  onMenuClick,
+  title,
+}: {
+  onMenuClick: () => void;
+  title: string;
+}) {
+  const { user, signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+  };
+
   return (
-    <header className="h-16 bg-white/80 backdrop-blur-md border-b border-zinc-200 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-8">
+    <header className="bg-white border-b border-zinc-200 px-4 sm:px-8 h-16 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="md:hidden"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onMenuClick}
+          className="md:hidden"
         >
-          <Menu className="w-5 h-5 text-zinc-600" />
+          <Menu className="w-5 h-5" />
         </Button>
-        <h1 className="font-display font-semibold text-lg text-zinc-800">
+        <h1 className="font-display font-semibold text-lg text-zinc-900">
           {title}
         </h1>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-4">
-        <div className="hidden sm:flex relative items-center">
-          <Search className="w-4 h-4 text-zinc-400 absolute left-3" />
-          <input 
-            type="text" 
-            placeholder="Search anything..." 
-            className="pl-9 pr-4 py-2 bg-zinc-100 border-transparent focus:bg-white focus:border-primary/30 focus:ring-4 focus:ring-primary/10 rounded-full text-sm w-64 transition-all outline-none"
-          />
-        </div>
-        <Button variant="ghost" size="icon" className="relative text-zinc-500 hover:bg-zinc-100 rounded-full">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full border border-white"></span>
-        </Button>
+      <div className="flex items-center gap-4">
+        {user && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2">
+                <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center border border-zinc-200">
+                  <span className="text-xs font-medium text-zinc-600">
+                    {user.email?.[0]?.toUpperCase() || "U"}
+                  </span>
+                </div>
+                <span className="hidden sm:inline text-sm text-zinc-700">
+                  {user.email}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <div className="px-2 py-1.5">
+                <p className="text-xs font-medium text-zinc-500">Signed in as</p>
+                <p className="text-sm font-medium text-zinc-900 truncate">
+                  {user.email}
+                </p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                <LogOut className="w-4 h-4 mr-2" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </header>
   );

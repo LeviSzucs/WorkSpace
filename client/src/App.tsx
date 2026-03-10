@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // Layouts
 import { AppLayout } from "./components/layout/AppLayout";
@@ -19,17 +20,19 @@ import Admin from "./pages/app/admin";
 
 function AppRoutes() {
   return (
-    <AppLayout>
-      <Switch>
-        <Route path="/app" component={Dashboard} />
-        <Route path="/app/rota-builder" component={RotaBuilder} />
-        <Route path="/app/rota" component={Rota} />
-        <Route path="/app/holidays" component={Holidays} />
-        <Route path="/app/holidays/manage" component={HolidaysManage} />
-        <Route path="/app/admin" component={Admin} />
-        <Route component={NotFound} />
-      </Switch>
-    </AppLayout>
+    <ProtectedRoute>
+      <AppLayout>
+        <Switch>
+          <Route path="/app" component={Dashboard} />
+          <Route path="/app/rota-builder" component={RotaBuilder} />
+          <Route path="/app/rota" component={Rota} />
+          <Route path="/app/holidays" component={Holidays} />
+          <Route path="/app/holidays/manage" component={HolidaysManage} />
+          <Route path="/app/admin" component={Admin} />
+          <Route component={NotFound} />
+        </Switch>
+      </AppLayout>
+    </ProtectedRoute>
   );
 }
 
@@ -39,7 +42,7 @@ function Router() {
       {/* Public Route */}
       <Route path="/login" component={Login} />
 
-      {/* Nested App Routes wrapped in Layout */}
+      {/* Nested App Routes wrapped in Protected Layout */}
       <Route path="/app/*" component={AppRoutes} />
       <Route path="/app" component={AppRoutes} />
 

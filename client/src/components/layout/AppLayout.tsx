@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { useLocation } from "wouter";
@@ -14,15 +14,7 @@ const ROUTE_TITLES: Record<string, string> = {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [location, setLocation] = useLocation();
-
-  // Simple dummy auth check
-  useEffect(() => {
-    const isAuth = sessionStorage.getItem("dummy_auth");
-    if (!isAuth) {
-      setLocation("/login");
-    }
-  }, [location, setLocation]);
+  const [location] = useLocation();
 
   const title = ROUTE_TITLES[location] || "HospitalityOS";
 
