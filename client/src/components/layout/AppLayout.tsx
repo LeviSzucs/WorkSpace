@@ -9,6 +9,12 @@ const ROUTE_TITLES: Record<string, string> = {
   "/app/rota-builder": "Rota Builder",
   "/app/holidays": "Holidays",
   "/app/holidays/manage": "Manage Holidays",
+  "/app/feed": "Feed",
+  "/app/messages": "Messages",
+  "/app/profile": "Profile",
+  "/app/forecasts": "Forecasts",
+  "/app/budgets": "Budgets",
+  "/app/team": "Team",
   "/app/admin": "Administration",
 };
 

@@ -7,18 +7,36 @@ import {
   Settings, 
   ShieldAlert,
   Menu,
-  X
+  X,
+  MessageSquare,
+  Mail,
+  User,
+  TrendingUp,
+  DollarSign
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRole } from "@/hooks/use-role";
 
 const ALL_NAV_ITEMS = [
+  // Universal
   { href: "/app", label: "Dashboard", icon: LayoutDashboard, requiredRoles: ['ORG_ADMIN', 'HEAD_OFFICE', 'VENUE_MANAGER', 'SUPERVISOR', 'STAFF'] },
-  { href: "/app/rota", label: "My Rota", icon: CalendarDays, requiredRoles: ['STAFF', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  
+  // Staff tabs (mobile priority)
+  { href: "/app/rota", label: "Shifts", icon: CalendarDays, requiredRoles: ['STAFF', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  { href: "/app/feed", label: "Feed", icon: MessageSquare, requiredRoles: ['STAFF', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  { href: "/app/messages", label: "Messages", icon: Mail, requiredRoles: ['STAFF', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  { href: "/app/holidays", label: "Holidays", icon: Plane, requiredRoles: ['STAFF', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  { href: "/app/profile", label: "Profile", icon: User, requiredRoles: ['STAFF', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  
+  // Management tabs (desktop priority)
   { href: "/app/rota-builder", label: "Rota Builder", icon: Users, requiredRoles: ['ORG_ADMIN', 'HEAD_OFFICE', 'VENUE_MANAGER', 'SUPERVISOR'] },
-  { href: "/app/holidays", label: "My Holidays", icon: Plane, requiredRoles: ['STAFF', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  { href: "/app/forecasts", label: "Forecasts", icon: TrendingUp, requiredRoles: ['ORG_ADMIN', 'HEAD_OFFICE', 'VENUE_MANAGER'] },
+  { href: "/app/budgets", label: "Budgets", icon: DollarSign, requiredRoles: ['ORG_ADMIN', 'HEAD_OFFICE', 'VENUE_MANAGER'] },
+  { href: "/app/team", label: "Team", icon: Users, requiredRoles: ['ORG_ADMIN', 'HEAD_OFFICE', 'VENUE_MANAGER', 'SUPERVISOR'] },
   { href: "/app/holidays/manage", label: "Manage Holidays", icon: Settings, requiredRoles: ['ORG_ADMIN', 'HEAD_OFFICE', 'VENUE_MANAGER', 'SUPERVISOR'] },
+  
+  // Admin
   { href: "/app/admin", label: "Admin", icon: ShieldAlert, requiredRoles: ['ORG_ADMIN', 'HEAD_OFFICE'] },
 ];
 

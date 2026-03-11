@@ -17,6 +17,12 @@ import RotaBuilder from "./pages/app/rota-builder";
 import Rota from "./pages/app/rota";
 import Holidays from "./pages/app/holidays";
 import HolidaysManage from "./pages/app/holidays-manage";
+import Feed from "./pages/app/feed";
+import Messages from "./pages/app/messages";
+import Profile from "./pages/app/profile";
+import Forecasts from "./pages/app/forecasts";
+import Budgets from "./pages/app/budgets";
+import Team from "./pages/app/team";
 import Admin from "./pages/app/admin";
 import NoAccess from "./pages/app/no-access";
 
@@ -31,6 +37,12 @@ function AppRoutes() {
             <Route path="/app/rota" component={Rota} />
             <Route path="/app/holidays" component={Holidays} />
             <Route path="/app/holidays/manage" component={HolidaysManage} />
+            <Route path="/app/feed" component={Feed} />
+            <Route path="/app/messages" component={Messages} />
+            <Route path="/app/profile" component={Profile} />
+            <Route path="/app/forecasts" component={Forecasts} />
+            <Route path="/app/budgets" component={Budgets} />
+            <Route path="/app/team" component={Team} />
             <Route path="/app/admin" component={Admin} />
             <Route path="/app/no-access" component={NoAccess} />
             <Route component={NotFound} />
