@@ -3,6 +3,7 @@ import { useRole } from '@/hooks/use-role';
 import { useManagedVenues } from '@/hooks/use-managed-venues';
 import { useVenueShifts } from '@/hooks/use-venue-shifts';
 import { useVenueMembers } from '@/hooks/use-venue-members';
+import { useVenueJobRoles } from '@/hooks/use-venue-job-roles';
 import { useLocation } from 'wouter';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ export default function RotaBuilder() {
     weekStart
   );
   const { members } = useVenueMembers(selectedVenue);
+  const { jobRoles } = useVenueJobRoles(selectedVenue);
 
   // Redirect STAFF away
   useEffect(() => {
@@ -139,6 +141,7 @@ export default function RotaBuilder() {
             shifts={shifts}
             weekStart={weekStart}
             venueId={selectedVenue}
+            jobRoles={jobRoles}
             onShiftAdded={refetchShifts}
             onShiftDeleted={refetchShifts}
           />

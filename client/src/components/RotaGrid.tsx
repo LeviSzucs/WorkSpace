@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ShiftGridCell } from './ShiftGridCell';
 import { DAYS_OF_WEEK } from '@/lib/week-utils';
@@ -8,6 +8,12 @@ interface StaffMember {
   email: string;
   role: string;
   department?: string;
+}
+
+interface JobRole {
+  id: string;
+  name: string;
+  department: string;
 }
 
 interface Shift {
@@ -27,6 +33,7 @@ interface RotaGridProps {
   shifts: Shift[];
   weekStart: Date;
   venueId: string;
+  jobRoles: JobRole[];
   onShiftAdded: () => void;
   onShiftDeleted: () => void;
 }
@@ -36,31 +43,49 @@ export function RotaGrid({
   shifts,
   weekStart,
   venueId,
+  jobRoles,
   onShiftAdded,
   onShiftDeleted,
 }: RotaGridProps) {
+  // Get unique departments from job_roles and sort them
+  const departmentList = useMemo(() => {
+    const depts = [...new Set(jobRoles.map((role) => role.department))];
+    return depts.sort();
+  }, [jobRoles]);
+
   const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(
-    new Set(['Kitchen', 'Front of House', 'Management'])
+    new Set(departmentList)
   );
 
-  // Group staff by department (mock for now)
+  // Group staff by department from job_roles
   const groupByDepartment = (members: StaffMember[]) => {
     const groups: Record<string, StaffMember[]> = {};
-    members.forEach((member) => {
-      const dept =
-        member.role === 'VENUE_MANAGER' || member.role === 'SUPERVISOR'
-          ? 'Management'
-          : member.role === 'CHEF'
-          ? 'Kitchen'
-          : 'Front of House';
-      if (!groups[dept]) groups[dept] = [];
-      groups[dept].push(member);
+    
+    // Initialize all departments from job_roles
+    departmentList.forEach((dept) => {
+      groups[dept] = [];
     });
+
+    // Assign staff to departments based on their role/manager status
+    members.forEach((member) => {
+      // Managers and supervisors go to "Management" if it exists
+      if (member.role === 'VENUE_MANAGER' || member.role === 'SUPERVISOR') {
+        const mgmtDept = departmentList.find((d) => d.toLowerCase().includes('management'));
+        if (mgmtDept) {
+          groups[mgmtDept].push(member);
+        } else {
+          groups[departmentList[0]].push(member);
+        }
+      } else {
+        // Regular staff go to the first department (typically Front of House)
+        groups[departmentList[0]].push(member);
+      }
+    });
+
     return groups;
   };
 
   const departments = groupByDepartment(staff);
-  const deptOrder = ['Front of House', 'Kitchen', 'Management'];
 
   const toggleDepartment = (dept: string) => {
     const newExpanded = new Set(expandedDepartments);
@@ -79,6 +104,23 @@ export function RotaGrid({
         shift.assigned_staff.some((s) => s.user_id === staffId)
     );
   };
+
+  // If no departments exist, show empty state
+  if (departmentList.length === 0) {
+    return (
+      <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-12 text-center">
+        <p className="text-zinc-600">No departments configured for this venue.</p>
+      </div>
+    );
+  }
+
+  if (staff.length === 0) {
+    return (
+      <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-12 text-center">
+        <p className="text-zinc-600">No staff assigned to this venue.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto bg-white rounded-lg border border-zinc-200">
@@ -105,7 +147,7 @@ export function RotaGrid({
         </div>
 
         {/* Department Sections */}
-        {deptOrder.map((deptName) => {
+        {departmentList.map((deptName) => {
           const deptMembers = departments[deptName] || [];
           if (deptMembers.length === 0) return null;
 
