@@ -11,6 +11,12 @@ interface StaffMember {
   department?: string;
 }
 
+interface JobRole {
+  id: string;
+  name: string;
+  department: string;
+}
+
 interface Shift {
   id: string;
   shift_date: string;
@@ -28,7 +34,7 @@ interface RotaGridProps {
   shifts: Shift[];
   weekStart: Date;
   venueId: string;
-  derivedDepartments: string[];
+  jobRoles: JobRole[];
   onShiftAdded: () => void;
   onShiftDeleted: () => void;
 }
@@ -38,14 +44,15 @@ export function RotaGrid({
   shifts,
   weekStart,
   venueId,
-  derivedDepartments,
+  jobRoles,
   onShiftAdded,
   onShiftDeleted,
 }: RotaGridProps) {
-  // Use derived departments from shifts (no dependency on jobRoles)
+  // Extract unique departments from job_roles (this is the grid structure)
   const departmentList = useMemo(() => {
-    return derivedDepartments || [];
-  }, [derivedDepartments]);
+    const depts = [...new Set((jobRoles || []).map((role) => role.department).filter(Boolean))];
+    return depts.sort();
+  }, [jobRoles]);
 
   const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(
     new Set(departmentList)
@@ -57,39 +64,43 @@ export function RotaGrid({
   const gridRef = useRef<HTMLDivElement>(null);
   const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // Group staff by department from job_roles
-  const groupByDepartment = (members: StaffMember[]) => {
-    const groups: Record<string, StaffMember[]> = {};
+  // Build grid structure: departments with staff rows underneath
+  // Department → Staff rows for that department
+  const gridStructure = useMemo(() => {
+    const structure: Record<string, StaffMember[]> = {};
     
-    // Initialize all departments from job_roles (safe guards)
+    // Initialize all departments from job_roles
     departmentList.forEach((dept) => {
-      if (dept) groups[dept] = [];
+      if (dept) structure[dept] = [];
     });
 
-    // Assign staff to departments based on their role/manager status
-    (members || []).forEach((member) => {
+    // Map staff to departments based on job roles they're assigned to
+    // For now, assign based on available job roles in their department
+    (staff || []).forEach((member) => {
       if (!member || !member.user_id) return;
       
-      // Managers and supervisors go to "Management" if it exists
-      if (member.role === 'VENUE_MANAGER' || member.role === 'SUPERVISOR') {
-        const mgmtDept = departmentList.find((d) => d?.toLowerCase().includes('management'));
-        if (mgmtDept) {
-          groups[mgmtDept].push(member);
-        } else if (departmentList[0]) {
-          groups[departmentList[0]].push(member);
-        }
-      } else {
-        // Regular staff go to the first department (typically Front of House)
-        if (departmentList[0]) {
-          groups[departmentList[0]].push(member);
-        }
+      // Get all departments for this staff member's roles
+      const memberDepts = (jobRoles || [])
+        .filter((role) => role.department) // Only departments with roles
+        .map((role) => role.department);
+      
+      // Assign to all departments they have roles in, default to first dept if none found
+      if (memberDepts.length > 0) {
+        const uniqueDepts = [...new Set(memberDepts)];
+        uniqueDepts.forEach((dept) => {
+          if (structure[dept]) {
+            structure[dept].push(member);
+          }
+        });
+      } else if (departmentList[0]) {
+        structure[departmentList[0]].push(member);
       }
     });
 
-    return groups;
-  };
+    return structure;
+  }, [staff, jobRoles, departmentList]);
 
-  const departments = groupByDepartment(staff);
+  const departments = gridStructure;
 
   const toggleDepartment = (dept: string) => {
     const newExpanded = new Set(expandedDepartments);

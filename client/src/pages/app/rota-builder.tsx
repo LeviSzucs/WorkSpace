@@ -3,6 +3,7 @@ import { useRole } from '@/hooks/use-role';
 import { useManagedVenues } from '@/hooks/use-managed-venues';
 import { useVenueShifts } from '@/hooks/use-venue-shifts';
 import { useVenueMembers } from '@/hooks/use-venue-members';
+import { useVenueJobRoles } from '@/hooks/use-venue-job-roles';
 import { useLocation } from 'wouter';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,16 +27,15 @@ export default function RotaBuilder() {
     selectedVenue,
     weekStart
   );
-  const { members } = useVenueMembers(selectedVenue);
+  const { members, isLoading: membersLoading } = useVenueMembers(selectedVenue);
+  const { jobRoles, isLoading: jobRolesLoading } = useVenueJobRoles(selectedVenue);
 
   console.log('[RotaBuilder] selectedVenue:', selectedVenue, 'week:', weekStartStr, '-', weekEndStr);
-  console.log('[RotaBuilder] shiftsLoading:', shiftsLoading, 'shifts count:', shifts.length);
+  console.log('[RotaBuilder] departments loaded:', jobRoles.length, 'staff loaded:', members.length);
+  console.log('[RotaBuilder] shifts loaded:', shifts.length, 'shiftsLoading:', shiftsLoading);
   
-  // Derive unique job role names directly from shifts
-  const derivedDepartments = Array.from(
-    new Set((shifts || []).map(s => s.job_role_name).filter(Boolean))
-  ).sort();
-  console.log('[RotaBuilder] derived departments from shifts:', derivedDepartments);
+  // Grid is ready once departments and staff are loaded (shifts are optional/can be empty)
+  const gridReady = !jobRolesLoading && !membersLoading && selectedVenue;
 
   // Redirect STAFF away
   useEffect(() => {
@@ -134,35 +134,31 @@ export default function RotaBuilder() {
       </div>
 
       {/* Management Summary - Forecasts & Budgets */}
-      {selectedVenue && !shiftsLoading && (
+      {selectedVenue && gridReady && (
         <ManagementSummary venueId={selectedVenue} weekStart={weekStart} />
       )}
 
       {/* Rota Grid */}
       <div>
         <h2 className="text-lg font-semibold text-zinc-900 mb-4">Weekly Rota</h2>
-        {shiftsLoading ? (
+        {!gridReady ? (
           <div className="flex items-center justify-center min-h-96">
             <div className="flex flex-col items-center gap-4">
               <div className="w-8 h-8 rounded-lg bg-primary animate-pulse"></div>
-              <p className="text-sm text-zinc-500">Loading shifts...</p>
+              <p className="text-sm text-zinc-500">Loading departments and staff...</p>
             </div>
           </div>
         ) : !selectedVenue ? (
           <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-12 text-center">
             <p className="text-zinc-600">Select a venue to view the rota.</p>
           </div>
-        ) : shifts.length === 0 ? (
-          <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-12 text-center">
-            <p className="text-zinc-600">No shifts yet for this week.</p>
-          </div>
         ) : (
           <RotaGrid
             staff={members}
-            shifts={shifts}
+            shifts={shifts || []}
             weekStart={weekStart}
             venueId={selectedVenue}
-            derivedDepartments={derivedDepartments}
+            jobRoles={jobRoles}
             onShiftAdded={refetchShifts}
             onShiftDeleted={refetchShifts}
           />
