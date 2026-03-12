@@ -79,26 +79,27 @@ export default function RotaBuilder() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 px-1">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-display font-bold text-zinc-900">Management Console</h1>
-        <p className="text-sm text-zinc-600 mt-1">Build rotas, forecast revenue, and manage budgets</p>
+      <div className="pb-2">
+        <h1 className="text-xl font-display font-bold text-zinc-900">Management Console</h1>
+        <p className="text-xs text-zinc-600 mt-0.5">Build rotas, forecast revenue, and manage budgets</p>
       </div>
 
       {/* Week & Venue Controls */}
-      <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="bg-white rounded-lg border border-zinc-200 p-3 space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-zinc-900">Week of {getWeekLabel(weekDate)}</h2>
-            <p className="text-sm text-zinc-500">Click cells to add shifts • Keyboard-first entry</p>
+            <h2 className="text-base font-semibold text-zinc-900">Week of {getWeekLabel(weekDate)}</h2>
+            <p className="text-xs text-zinc-500">Click cells to add shifts • Keyboard-first entry</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setWeekDate(new Date(weekDate.getTime() - 7 * 24 * 60 * 60 * 1000))}
               title="Previous week (Monday-based)"
+              className="px-2 py-1 h-8"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -107,6 +108,7 @@ export default function RotaBuilder() {
               size="sm"
               onClick={() => setWeekDate(getWeekStart(new Date()))}
               title="Jump to current Monday-based week"
+              className="px-3 py-1 h-8"
             >
               Today
             </Button>
@@ -115,19 +117,20 @@ export default function RotaBuilder() {
               size="sm"
               onClick={() => setWeekDate(new Date(weekDate.getTime() + 7 * 24 * 60 * 60 * 1000))}
               title="Next week (Monday-based)"
+              className="px-2 py-1 h-8"
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-zinc-700 mb-2">Select Venue</label>
+            <label className="block text-xs font-medium text-zinc-700 mb-1">Select Venue</label>
             <select
               value={selectedVenue || ''}
               onChange={(e) => setSelectedVenue(e.target.value)}
-              className="w-full sm:w-64 px-3 py-2 rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-900 focus:outline-none focus:bg-white focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all"
+              className="w-full sm:w-56 px-2.5 py-1.5 text-sm rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-900 focus:outline-none focus:bg-white focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all"
             >
               {venues.map((venue) => (
                 <option key={venue.id} value={venue.id}>
@@ -146,7 +149,7 @@ export default function RotaBuilder() {
 
       {/* Rota Grid */}
       <div>
-        <h2 className="text-lg font-semibold text-zinc-900 mb-4">Weekly Rota</h2>
+        <h2 className="text-base font-semibold text-zinc-900 mb-2">Weekly Rota</h2>
         {!gridReady ? (
           <div className="flex items-center justify-center min-h-96">
             <div className="flex flex-col items-center gap-4">

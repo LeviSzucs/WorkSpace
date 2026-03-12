@@ -48,14 +48,14 @@ export function ManagementSummary({ venueId, weekStart }: ManagementSummaryProps
   return (
     <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <tbody>
             {summaryRows.map((row, idx) => (
-              <tr key={idx} className="border-b border-zinc-100 last:border-b-0">
-                <td className="px-4 py-2 font-medium text-zinc-900 w-40">
+              <tr key={idx} className="border-b border-zinc-100 last:border-b-0 hover:bg-zinc-50">
+                <td className="px-3 py-1.5 font-medium text-zinc-900 w-40">
                   {row.label}
                 </td>
-                <td className="px-4 py-2 text-zinc-600">
+                <td className="px-3 py-1.5 text-zinc-600">
                   {row.value}
                 </td>
               </tr>
