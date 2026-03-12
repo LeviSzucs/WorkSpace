@@ -48,9 +48,12 @@ export function RotaGrid({
   onShiftAdded,
   onShiftDeleted,
 }: RotaGridProps) {
-  // Extract unique departments from job_roles (this is the grid structure)
+  console.log('[RotaGrid] jobRoles count:', jobRoles?.length || 0);
+  
+  // Extract unique departments from job_roles (each job role name is a department)
   const departmentList = useMemo(() => {
-    const depts = [...new Set((jobRoles || []).map((role) => role.department).filter(Boolean))];
+    if (!jobRoles || jobRoles.length === 0) return [];
+    const depts = [...new Set(jobRoles.map((role) => role.department).filter(Boolean))];
     return depts.sort();
   }, [jobRoles]);
 

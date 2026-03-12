@@ -24,24 +24,26 @@ export function useVenueJobRoles(venueId: string | null) {
         setIsLoading(true);
         setError(null);
 
-        // Query: SELECT job_roles.id, job_roles.name, job_roles.department
-        //        FROM job_roles
-        //        WHERE job_roles.venue_id = $1
-        //        ORDER BY job_roles.department, job_roles.name
+        console.log('[useVenueJobRoles] Fetching job_roles for venue:', venueId);
 
+        // Query: SELECT id, name, venue_id
+        //        FROM job_roles
+        //        WHERE venue_id = $1
+        //        ORDER BY name
         const { data, error: fetchError } = await supabase
           .from('job_roles')
-          .select('id, name, department')
+          .select('id, name, venue_id')
           .eq('venue_id', venueId)
-          .order('department', { ascending: true })
           .order('name', { ascending: true });
 
         if (fetchError) throw fetchError;
 
+        console.log('[useVenueJobRoles] Returned', data?.length || 0, 'job_roles');
+
         const formattedRoles: JobRole[] = (data || []).map((role: any) => ({
           id: role.id,
           name: role.name,
-          department: role.department || 'General',
+          department: role.name, // Job role name IS the department
         }));
 
         setJobRoles(formattedRoles);
