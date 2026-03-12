@@ -68,24 +68,28 @@ export function RotaGrid({
   const groupByDepartment = (members: StaffMember[]) => {
     const groups: Record<string, StaffMember[]> = {};
     
-    // Initialize all departments from job_roles
+    // Initialize all departments from job_roles (safe guards)
     departmentList.forEach((dept) => {
-      groups[dept] = [];
+      if (dept) groups[dept] = [];
     });
 
     // Assign staff to departments based on their role/manager status
-    members.forEach((member) => {
+    (members || []).forEach((member) => {
+      if (!member || !member.user_id) return;
+      
       // Managers and supervisors go to "Management" if it exists
       if (member.role === 'VENUE_MANAGER' || member.role === 'SUPERVISOR') {
-        const mgmtDept = departmentList.find((d) => d.toLowerCase().includes('management'));
+        const mgmtDept = departmentList.find((d) => d?.toLowerCase().includes('management'));
         if (mgmtDept) {
           groups[mgmtDept].push(member);
-        } else {
+        } else if (departmentList[0]) {
           groups[departmentList[0]].push(member);
         }
       } else {
         // Regular staff go to the first department (typically Front of House)
-        groups[departmentList[0]].push(member);
+        if (departmentList[0]) {
+          groups[departmentList[0]].push(member);
+        }
       }
     });
 
@@ -105,10 +109,11 @@ export function RotaGrid({
   };
 
   const getStaffShifts = (staffId: string, date: string) => {
-    return shifts.filter(
+    if (!staffId || !date) return [];
+    return (shifts || []).filter(
       (shift) =>
-        shift.shift_date === date &&
-        shift.assigned_staff.some((s) => s.user_id === staffId)
+        shift?.shift_date === date &&
+        (shift?.assigned_staff || []).some((s) => s?.user_id === staffId)
     );
   };
 
@@ -281,8 +286,9 @@ export function RotaGrid({
               {/* Staff Rows */}
               {isExpanded &&
                 deptMembers.map((member, staffIdx) => {
+                  if (!member || !member.email) return null;
                   const userName = member.email.split('@')[0];
-                  const globalStaffIndex = flatStaffList.findIndex((s) => s.user_id === member.user_id);
+                  const globalStaffIndex = flatStaffList.findIndex((s) => s?.user_id === member.user_id);
                   return (
                     <div key={member.user_id} className="flex border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
                       <div className="w-48 px-4 py-2 font-medium text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-20 truncate">

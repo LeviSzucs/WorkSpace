@@ -25,6 +25,8 @@ export default function RotaBuilder() {
   const { members } = useVenueMembers(selectedVenue);
   const { jobRoles } = useVenueJobRoles(selectedVenue);
 
+  console.log('[RotaBuilder] selectedVenue:', selectedVenue, 'shiftsLoading:', shiftsLoading, 'shifts count:', shifts.length);
+
   // Redirect STAFF away
   useEffect(() => {
     if (!roleLoading && role === 'STAFF') {
@@ -32,12 +34,13 @@ export default function RotaBuilder() {
     }
   }, [role, roleLoading, setLocation]);
 
-  // Set initial venue
+  // Set initial venue (one-time only when venues load)
   useEffect(() => {
     if (venues.length > 0 && !selectedVenue) {
+      console.log('[RotaBuilder] Setting initial venue:', venues[0].id);
       setSelectedVenue(venues[0].id);
     }
-  }, [venues, selectedVenue]);
+  }, [venues.length]);
 
   if (roleLoading || venuesLoading) {
     return (

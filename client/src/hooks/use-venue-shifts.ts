@@ -47,6 +47,7 @@ export function useVenueShifts(venueId: string | null, weekStartDate: Date) {
       //        ORDER BY shifts.shift_date, shifts.starts_at
       
       console.log('[useVenueShifts] Fetching shifts for venue:', venueId, 'week:', startDateStr, '-', endDateStr);
+      console.log('[useVenueShifts] Logged in user: check useAuth logs');
       
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')

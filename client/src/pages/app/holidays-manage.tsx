@@ -14,6 +14,8 @@ export default function HolidaysManage() {
   const { requests, isLoading, error, updateRequestStatus } = useManagedHolidayRequests();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('PENDING');
 
+  console.log('[HolidaysManage] requests count:', requests.length, 'isLoading:', isLoading, 'error:', error?.message);
+
   // Redirect STAFF away
   useEffect(() => {
     if (!roleLoading && role === 'STAFF') {
@@ -41,15 +43,7 @@ export default function HolidaysManage() {
   }
 
   if (error) {
-    return (
-      <div className="rounded-lg bg-red-50 border border-red-200 p-6 flex items-start gap-4">
-        <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-        <div>
-          <h3 className="font-semibold text-red-900 mb-1">Error Loading Requests</h3>
-          <p className="text-sm text-red-700">{error.message}</p>
-        </div>
-      </div>
-    );
+    console.error('[HolidaysManage] Error:', error);
   }
 
   return (
@@ -105,7 +99,7 @@ export default function HolidaysManage() {
             <p className="text-sm text-zinc-500">Loading requests...</p>
           </div>
         </div>
-      ) : filteredRequests.length === 0 ? (
+      ) : !error && filteredRequests.length === 0 ? (
         <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-12 text-center">
           <Plane className="w-12 h-12 text-zinc-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-zinc-900 mb-2">No Requests</h3>
@@ -118,6 +112,14 @@ export default function HolidaysManage() {
               ? 'No rejected requests.'
               : 'No requests found.'}
           </p>
+        </div>
+      ) : error ? (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-6 flex items-start gap-4">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-red-900 mb-1">Error Loading Requests</h3>
+            <p className="text-sm text-red-700">{error.message}</p>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">
