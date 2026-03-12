@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RoleBasedRedirect } from "@/components/RoleBasedRedirect";
+import { RoleAccessControl } from "@/components/RoleAccessControl";
 
 // Layouts
 import { AppLayout } from "./components/layout/AppLayout";
@@ -30,24 +31,26 @@ function AppRoutes() {
   return (
     <ProtectedRoute>
       <RoleBasedRedirect>
-        <AppLayout>
-          <Switch>
-            <Route path="/app" component={Dashboard} />
-            <Route path="/app/rota-builder" component={RotaBuilder} />
-            <Route path="/app/rota" component={Rota} />
-            <Route path="/app/holidays" component={Holidays} />
-            <Route path="/app/holidays/manage" component={HolidaysManage} />
-            <Route path="/app/feed" component={Feed} />
-            <Route path="/app/messages" component={Messages} />
-            <Route path="/app/profile" component={Profile} />
-            <Route path="/app/forecasts" component={Forecasts} />
-            <Route path="/app/budgets" component={Budgets} />
-            <Route path="/app/team" component={Team} />
-            <Route path="/app/admin" component={Admin} />
-            <Route path="/app/no-access" component={NoAccess} />
-            <Route component={NotFound} />
-          </Switch>
-        </AppLayout>
+        <RoleAccessControl>
+          <AppLayout>
+            <Switch>
+              <Route path="/app" component={Dashboard} />
+              <Route path="/app/rota-builder" component={RotaBuilder} />
+              <Route path="/app/rota" component={Rota} />
+              <Route path="/app/holidays" component={Holidays} />
+              <Route path="/app/holidays/manage" component={HolidaysManage} />
+              <Route path="/app/feed" component={Feed} />
+              <Route path="/app/messages" component={Messages} />
+              <Route path="/app/profile" component={Profile} />
+              <Route path="/app/forecasts" component={Forecasts} />
+              <Route path="/app/budgets" component={Budgets} />
+              <Route path="/app/team" component={Team} />
+              <Route path="/app/admin" component={Admin} />
+              <Route path="/app/no-access" component={NoAccess} />
+              <Route component={NotFound} />
+            </Switch>
+          </AppLayout>
+        </RoleAccessControl>
       </RoleBasedRedirect>
     </ProtectedRoute>
   );
