@@ -9,17 +9,18 @@ import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RotaGrid } from '@/components/RotaGrid';
 import { ManagementSummary } from '@/components/ManagementSummary';
-import { getWeekStart, getWeekLabel } from '@/lib/week-utils';
+import { getWeekStart, getWeekLabel, DAYS_OF_WEEK } from '@/lib/week-utils';
 
 export default function RotaBuilder() {
   const [, setLocation] = useLocation();
   const { role, isLoading: roleLoading } = useRole();
   const { venues, isLoading: venuesLoading } = useManagedVenues();
   const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
-  const [weekDate, setWeekDate] = useState(new Date());
+  // Initialize with the current Monday
+  const [weekDate, setWeekDate] = useState(() => getWeekStart(new Date()));
   const weekStart = getWeekStart(weekDate);
   const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
+  weekEnd.setDate(weekEnd.getDate() + 6); // Monday + 6 days = Sunday
   const weekStartStr = weekStart.toISOString().split('T')[0];
   const weekEndStr = weekEnd.toISOString().split('T')[0];
   
@@ -30,9 +31,11 @@ export default function RotaBuilder() {
   const { members, isLoading: membersLoading } = useVenueMembers(selectedVenue);
   const { jobRoles, isLoading: jobRolesLoading } = useVenueJobRoles(selectedVenue);
 
+  console.log('[RotaBuilder] Week start logic: Monday-based week (Mon-Sun)');
   console.log('[RotaBuilder] selectedVenue:', selectedVenue, 'week:', weekStartStr, '-', weekEndStr);
   console.log('[RotaBuilder] departments loaded:', jobRoles.length, 'staff loaded:', members.length);
   console.log('[RotaBuilder] shifts loaded:', shifts.length, 'shiftsLoading:', shiftsLoading);
+  console.log('[RotaBuilder] Grid columns:', DAYS_OF_WEEK.join(', '));
   
   // Grid is ready once departments and staff are loaded (shifts are optional/can be empty)
   const gridReady = !jobRolesLoading && !membersLoading && selectedVenue;
@@ -95,13 +98,15 @@ export default function RotaBuilder() {
               variant="outline"
               size="sm"
               onClick={() => setWeekDate(new Date(weekDate.getTime() - 7 * 24 * 60 * 60 * 1000))}
+              title="Previous week (Monday-based)"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setWeekDate(new Date())}
+              onClick={() => setWeekDate(getWeekStart(new Date()))}
+              title="Jump to current Monday-based week"
             >
               Today
             </Button>
@@ -109,6 +114,7 @@ export default function RotaBuilder() {
               variant="outline"
               size="sm"
               onClick={() => setWeekDate(new Date(weekDate.getTime() + 7 * 24 * 60 * 60 * 1000))}
+              title="Next week (Monday-based)"
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
