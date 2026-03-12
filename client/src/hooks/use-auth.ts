@@ -32,6 +32,7 @@ export function useAuth() {
           return;
         }
 
+        console.log('[useAuth] Session user:', session?.user?.id);
         setAuthState({
           user: session?.user || null,
           session: session || null,

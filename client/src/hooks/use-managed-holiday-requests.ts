@@ -53,6 +53,8 @@ export function useManagedHolidayRequests() {
 
       // If ORG_ADMIN or HEAD_OFFICE, get all holiday requests
       if (role === 'ORG_ADMIN' || role === 'HEAD_OFFICE') {
+        console.log('[useManagedHolidayRequests] ORG_ADMIN/HEAD_OFFICE - fetching all holiday requests');
+        
         const { data, error: fetchError } = await supabase
           .from('holiday_requests')
           .select(`
@@ -61,8 +63,8 @@ export function useManagedHolidayRequests() {
             venue_id,
             users (email, full_name),
             venues (name),
-            start_date,
-            end_date,
+            starts_on,
+            ends_on,
             status,
             reason,
             created_at,
@@ -73,6 +75,8 @@ export function useManagedHolidayRequests() {
 
         if (fetchError) throw fetchError;
 
+        console.log('[useManagedHolidayRequests] Returned', data?.length || 0, 'holiday requests');
+
         const formattedRequests: ManagedHolidayRequest[] = (data || []).map((item: any) => ({
           id: item.id,
           user_id: item.user_id,
@@ -80,8 +84,8 @@ export function useManagedHolidayRequests() {
           requester_name: item.users?.full_name || 'Unknown User',
           venue_id: item.venue_id,
           venue_name: item.venues?.name || 'Unknown Venue',
-          start_date: item.start_date,
-          end_date: item.end_date,
+          start_date: item.starts_on,
+          end_date: item.ends_on,
           status: item.status as HolidayStatus,
           reason: item.reason,
           created_at: item.created_at,
@@ -102,6 +106,8 @@ export function useManagedHolidayRequests() {
         const staffIds = (staffData || []).map((vm: any) => vm.user_id);
 
         if (staffIds.length > 0) {
+          console.log('[useManagedHolidayRequests] VENUE_MANAGER/SUPERVISOR - managed venues:', managedVenueIds, 'staff ids:', staffIds.length);
+          
           const { data, error: fetchError } = await supabase
             .from('holiday_requests')
             .select(`
@@ -110,8 +116,8 @@ export function useManagedHolidayRequests() {
               venue_id,
               users (email, full_name),
               venues (name),
-              start_date,
-              end_date,
+              starts_on,
+              ends_on,
               status,
               reason,
               created_at,
@@ -123,6 +129,8 @@ export function useManagedHolidayRequests() {
 
           if (fetchError) throw fetchError;
 
+          console.log('[useManagedHolidayRequests] Returned', data?.length || 0, 'holiday requests');
+
           const formattedRequests: ManagedHolidayRequest[] = (data || []).map((item: any) => ({
             id: item.id,
             user_id: item.user_id,
@@ -130,8 +138,8 @@ export function useManagedHolidayRequests() {
             requester_name: item.users?.full_name || 'Unknown User',
             venue_id: item.venue_id,
             venue_name: item.venues?.name || 'Unknown Venue',
-            start_date: item.start_date,
-            end_date: item.end_date,
+            start_date: item.starts_on,
+            end_date: item.ends_on,
             status: item.status as HolidayStatus,
             reason: item.reason,
             created_at: item.created_at,

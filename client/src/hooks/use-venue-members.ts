@@ -24,11 +24,12 @@ export function useVenueMembers(venueId: string | null) {
         setIsLoading(true);
         setError(null);
 
+        console.log('[useVenueMembers] Fetching members for venue:', venueId);
+
         // Query: SELECT venue_memberships.*, users.email
         //        FROM venue_memberships
         //        JOIN users ON venue_memberships.user_id = users.id
         //        WHERE venue_memberships.venue_id = $1
-        //        AND venue_memberships.role != 'STAFF' OR venue_memberships.role = 'STAFF'
         //        ORDER BY users.email
         
         const { data, error: fetchError } = await supabase
@@ -38,6 +39,8 @@ export function useVenueMembers(venueId: string | null) {
           .order('users(email)', { ascending: true });
 
         if (fetchError) throw fetchError;
+
+        console.log('[useVenueMembers] Returned', data?.length || 0, 'members');
 
         const formattedMembers: VenueMember[] = (data || [])
           .map((item: any) => ({

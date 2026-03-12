@@ -53,11 +53,13 @@ export function useVenueForecastData(
         const forecastSales = forecastData?.forecast_sales || 0;
 
         // Fetch venue budget for this week
+        console.log('[useVenueForecastData] Fetching forecast for venue:', venueId, 'week:', startDateStr);
+        
         const { data: budgetData, error: budgetError } = await supabase
           .from('venue_budgets')
           .select('labour_budget, labour_target_percent')
           .eq('venue_id', venueId)
-          .eq('budget_week_start', startDateStr)
+          .eq('week_commencing', startDateStr)
           .single();
 
         if (budgetError && budgetError.code !== 'PGRST116') throw budgetError;
@@ -71,8 +73,8 @@ export function useVenueForecastData(
           .select(
             `
             id,
-            start_time,
-            end_time,
+            starts_at,
+            ends_at,
             shift_assignments (
               user_id,
               users (hourly_rate)
@@ -85,12 +87,14 @@ export function useVenueForecastData(
 
         if (shiftsError) throw shiftsError;
 
+        console.log('[useVenueForecastData] Returned', shiftsData?.length || 0, 'shifts');
+
         let scheduledHours = 0;
         let scheduledLabourCost = 0;
 
         (shiftsData || []).forEach((shift: any) => {
-          const startTime = shift.start_time.split(':');
-          const endTime = shift.end_time.split(':');
+          const startTime = shift.starts_at.split(':');
+          const endTime = shift.ends_at.split(':');
           const startMinutes = parseInt(startTime[0]) * 60 + parseInt(startTime[1]);
           const endMinutes = parseInt(endTime[0]) * 60 + parseInt(endTime[1]);
           const hours = (endMinutes - startMinutes) / 60;

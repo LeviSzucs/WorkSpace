@@ -27,6 +27,8 @@ export function useManagedVenues() {
         setIsLoading(true);
         setError(null);
 
+        console.log('[useManagedVenues] User:', user.id, 'Role:', role);
+
         // ORG_ADMIN and HEAD_OFFICE can see all venues
         // VENUE_MANAGER and SUPERVISOR can only see their own venue
         if (role === 'ORG_ADMIN' || role === 'HEAD_OFFICE') {
@@ -36,6 +38,7 @@ export function useManagedVenues() {
             .order('name', { ascending: true });
 
           if (fetchError) throw fetchError;
+          console.log('[useManagedVenues] ORG_ADMIN/HEAD_OFFICE - returned', data?.length || 0, 'venues');
           setVenues(data || []);
         } else if (role === 'VENUE_MANAGER' || role === 'SUPERVISOR') {
           // Get venues from venue_memberships where user_id = current user
@@ -50,6 +53,7 @@ export function useManagedVenues() {
             .map((item: any) => item.venues)
             .filter(Boolean) as Venue[];
 
+          console.log('[useManagedVenues] VENUE_MANAGER/SUPERVISOR - returned', venueList.length, 'venues');
           setVenues(venueList);
         }
       } catch (err) {

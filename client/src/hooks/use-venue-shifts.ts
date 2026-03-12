@@ -44,19 +44,22 @@ export function useVenueShifts(venueId: string | null, weekStartDate: Date) {
       //        WHERE shifts.venue_id = $1
       //        AND shifts.shift_date >= $2
       //        AND shifts.shift_date <= $3
-      //        ORDER BY shifts.shift_date, shifts.start_time
+      //        ORDER BY shifts.shift_date, shifts.starts_at
+      
+      console.log('[useVenueShifts] Fetching shifts for venue:', venueId, 'week:', startDateStr, '-', endDateStr);
       
       const { data: shiftsData, error: shiftsError } = await supabase
         .from('shifts')
         .select(`
           id,
           shift_date,
-          start_time,
-          end_time,
+          starts_at,
+          ends_at,
           status,
           job_role_id,
           job_roles (name),
           shift_assignments (
+            user_id,
             users (id, email)
           )
         `)
@@ -64,22 +67,24 @@ export function useVenueShifts(venueId: string | null, weekStartDate: Date) {
         .gte('shift_date', startDateStr)
         .lte('shift_date', endDateStr)
         .order('shift_date', { ascending: true })
-        .order('start_time', { ascending: true });
+        .order('starts_at', { ascending: true });
 
       if (shiftsError) throw shiftsError;
+
+      console.log('[useVenueShifts] Returned', shiftsData?.length || 0, 'shifts');
 
       const formattedShifts: ShiftWithAssignments[] = (shiftsData || [])
         .map((shift: any) => ({
           id: shift.id,
           shift_date: shift.shift_date,
-          start_time: shift.start_time,
-          end_time: shift.end_time,
+          start_time: shift.starts_at,
+          end_time: shift.ends_at,
           status: shift.status,
           job_role_id: shift.job_role_id,
-          job_role_name: shift.job_roles?.[0]?.name || 'Unknown Role',
+          job_role_name: shift.job_roles?.name || 'Unknown Role',
           assigned_staff: (shift.shift_assignments || []).map((sa: any) => ({
-            user_id: sa.users.id,
-            user_name: sa.users.email.split('@')[0],
+            user_id: sa.user_id,
+            user_name: sa.users?.email?.split('@')[0] || 'Unknown',
           })),
         }));
 
