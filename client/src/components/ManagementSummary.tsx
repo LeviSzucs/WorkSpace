@@ -7,7 +7,12 @@ interface ManagementSummaryProps {
 }
 
 export function ManagementSummary({ venueId, weekStart }: ManagementSummaryProps) {
+  const weekStr = weekStart.toISOString().split('T')[0];
+  console.log('[ManagementSummary] rendering for venueId:', venueId, 'weekStart:', weekStr);
+  
   const { data: forecastData, isLoading } = useVenueForecastData(venueId, weekStart);
+
+  console.log('[ManagementSummary] isLoading:', isLoading, 'forecastData exists:', !!forecastData);
 
   if (isLoading) {
     return (
@@ -23,6 +28,7 @@ export function ManagementSummary({ venueId, weekStart }: ManagementSummaryProps
     );
   }
 
+  // Show stable empty state after loading completes
   if (!forecastData) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -23,6 +23,9 @@ export function useVenueForecastData(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Convert Date to stable string to avoid refetch loops
+  const weekCommencing = weekStartDate.toISOString().split('T')[0];
+
   useEffect(() => {
     const fetchData = async () => {
       if (!venueId) {
@@ -35,9 +38,11 @@ export function useVenueForecastData(
         setIsLoading(true);
         setError(null);
 
+        console.log('[useVenueForecastData] Fetching forecast for selectedVenueId:', venueId, 'weekCommencing:', weekCommencing);
+
         const weekEndDate = new Date(weekStartDate);
         weekEndDate.setDate(weekEndDate.getDate() + 6);
-        const startDateStr = weekStartDate.toISOString().split('T')[0];
+        const startDateStr = weekCommencing;
         const endDateStr = weekEndDate.toISOString().split('T')[0];
 
         // Fetch venue forecast for this week
@@ -51,10 +56,9 @@ export function useVenueForecastData(
         if (forecastError && forecastError.code !== 'PGRST116') throw forecastError;
 
         const forecastSales = forecastData?.forecast_sales || 0;
+        console.log('[useVenueForecastData] forecast row count:', forecastData ? 1 : 0);
 
         // Fetch venue budget for this week
-        console.log('[useVenueForecastData] Fetching forecast for venue:', venueId, 'week:', startDateStr);
-        
         const { data: budgetData, error: budgetError } = await supabase
           .from('venue_budgets')
           .select('labour_budget, labour_target_percent')
@@ -66,6 +70,7 @@ export function useVenueForecastData(
 
         const labourBudget = budgetData?.labour_budget || 0;
         const labourTargetPercent = budgetData?.labour_target_percent || 0;
+        console.log('[useVenueForecastData] budget row count:', budgetData ? 1 : 0);
 
         // Fetch shifts and calculate hours + labour cost
         const { data: shiftsData, error: shiftsError } = await supabase
@@ -87,7 +92,7 @@ export function useVenueForecastData(
 
         if (shiftsError) throw shiftsError;
 
-        console.log('[useVenueForecastData] Returned', shiftsData?.length || 0, 'shifts');
+        console.log('[useVenueForecastData] shifts count:', shiftsData?.length || 0);
 
         let scheduledHours = 0;
         let scheduledLabourCost = 0;
@@ -123,6 +128,7 @@ export function useVenueForecastData(
           variance,
           variancePercent,
         });
+        console.log('[useVenueForecastData] Loading set to false - fetch complete');
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to fetch forecast data');
         setError(error);
@@ -133,7 +139,7 @@ export function useVenueForecastData(
     };
 
     fetchData();
-  }, [venueId, weekStartDate]);
+  }, [venueId, weekCommencing]);
 
   return {
     data,
