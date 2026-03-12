@@ -1,4 +1,5 @@
-import { TrendingUp, DollarSign, AlertCircle } from 'lucide-react';
+import { TrendingUp, DollarSign, Clock } from 'lucide-react';
+import { useVenueForecastData } from '@/hooks/use-venue-forecast-data';
 
 interface ManagementSummaryProps {
   venueId: string;
@@ -6,59 +7,98 @@ interface ManagementSummaryProps {
 }
 
 export function ManagementSummary({ venueId, weekStart }: ManagementSummaryProps) {
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
+  const { data: forecastData, isLoading } = useVenueForecastData(venueId, weekStart);
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-white rounded-xl border border-zinc-200 p-6 animate-pulse">
+            <div className="h-4 bg-zinc-200 rounded w-20 mb-4"></div>
+            <div className="h-8 bg-zinc-200 rounded w-24 mb-2"></div>
+            <div className="h-3 bg-zinc-100 rounded w-32"></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!forecastData) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-white rounded-xl border border-zinc-200 p-6">
+            <p className="text-xs text-zinc-500">No data available</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const budgetPercent =
+    forecastData.labourBudget > 0
+      ? (forecastData.scheduledLabourCost / forecastData.labourBudget) * 100
+      : 0;
+  const isOverBudget = budgetPercent > 100;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* Revenue Forecast */}
-      <div className="bg-white rounded-xl border border-zinc-200 p-6 space-y-3">
+      <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-zinc-900">Revenue Forecast</h3>
-          <TrendingUp className="w-5 h-5 text-emerald-600" />
+          <h3 className="text-xs font-semibold text-zinc-900 uppercase">Forecast Sales</h3>
+          <TrendingUp className="w-4 h-4 text-emerald-600" />
         </div>
-        <div>
-          <div className="text-2xl font-display font-bold text-zinc-900">$8,450</div>
-          <p className="text-xs text-zinc-500 mt-1">This week • +12% vs last week</p>
+        <div className="text-xl font-display font-bold text-zinc-900">
+          ${forecastData.forecastSales.toLocaleString()}
         </div>
-        <div className="pt-3 border-t border-zinc-100">
-          <p className="text-xs text-zinc-600">Based on current staffing & historical patterns</p>
+        <div className="text-xs text-zinc-500">
+          Target: {forecastData.labourTargetPercent}% labour of revenue
         </div>
       </div>
 
       {/* Labor Cost Budget */}
-      <div className="bg-white rounded-xl border border-zinc-200 p-6 space-y-3">
+      <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-zinc-900">Labor Cost</h3>
-          <DollarSign className="w-5 h-5 text-blue-600" />
+          <h3 className="text-xs font-semibold text-zinc-900 uppercase">Labour Cost</h3>
+          <DollarSign className="w-4 h-4 text-blue-600" />
         </div>
-        <div>
-          <div className="text-2xl font-display font-bold text-zinc-900">$3,280</div>
-          <p className="text-xs text-zinc-500 mt-1">This week • Budget: $3,600</p>
+        <div className="text-xl font-display font-bold text-zinc-900">
+          ${forecastData.scheduledLabourCost.toFixed(0)} / ${forecastData.labourBudget.toFixed(0)}
         </div>
-        <div className="pt-3 border-t border-zinc-100 space-y-2">
+        <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-600">Budget utilization</span>
-            <span className="text-xs font-semibold text-zinc-900">91%</span>
+            <span className="text-xs text-zinc-600">
+              {isOverBudget ? 'Over budget' : 'Remaining'}
+            </span>
+            <span
+              className={`text-xs font-semibold ${isOverBudget ? 'text-red-600' : 'text-emerald-600'}`}
+            >
+              ${Math.abs(forecastData.variance).toFixed(0)}
+            </span>
           </div>
           <div className="w-full h-1.5 bg-zinc-200 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full" style={{ width: '91%' }} />
+            <div
+              className={`h-full rounded-full transition-all ${
+                isOverBudget ? 'bg-red-500' : 'bg-emerald-500'
+              }`}
+              style={{ width: `${Math.min(budgetPercent, 100)}%` }}
+            />
           </div>
         </div>
       </div>
 
-      {/* Staffing Status */}
-      <div className="bg-white rounded-xl border border-zinc-200 p-6 space-y-3">
+      {/* Scheduled Hours */}
+      <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-zinc-900">Staffing</h3>
-          <AlertCircle className="w-5 h-5 text-amber-600" />
+          <h3 className="text-xs font-semibold text-zinc-900 uppercase">Scheduled Hours</h3>
+          <Clock className="w-4 h-4 text-violet-600" />
         </div>
-        <div>
-          <div className="text-2xl font-display font-bold text-zinc-900">14/16</div>
-          <p className="text-xs text-zinc-500 mt-1">Staff scheduled • 2 gaps</p>
+        <div className="text-xl font-display font-bold text-zinc-900">
+          {forecastData.scheduledHours.toFixed(1)} hrs
         </div>
-        <div className="pt-3 border-t border-zinc-100">
-          <p className="text-xs text-zinc-600">Review critical shifts in the grid below</p>
+        <div className="text-xs text-zinc-500">
+          {budgetPercent.toFixed(0)}% of labour budget
         </div>
       </div>
     </div>
