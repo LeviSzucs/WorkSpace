@@ -7,6 +7,7 @@ import { useLocation } from 'wouter';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RotaGrid } from '@/components/RotaGrid';
+import { ManagementSummary } from '@/components/ManagementSummary';
 import { getWeekStart, getWeekLabel } from '@/lib/week-utils';
 
 export default function RotaBuilder() {
@@ -61,12 +62,18 @@ export default function RotaBuilder() {
 
   return (
     <div className="space-y-6">
-      {/* Controls */}
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-display font-bold text-zinc-900">Management Console</h1>
+        <p className="text-sm text-zinc-600 mt-1">Build rotas, forecast revenue, and manage budgets</p>
+      </div>
+
+      {/* Week & Venue Controls */}
       <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-4">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-zinc-900">Week of {getWeekLabel(weekDate)}</h2>
-            <p className="text-sm text-zinc-500">Click cells to add shifts • Department sections collapse/expand</p>
+            <p className="text-sm text-zinc-500">Click cells to add shifts • Keyboard-first entry</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -93,40 +100,50 @@ export default function RotaBuilder() {
           </div>
         </div>
 
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-zinc-700 mb-2">Select Venue</label>
-          <select
-            value={selectedVenue || ''}
-            onChange={(e) => setSelectedVenue(e.target.value)}
-            className="w-full sm:w-64 px-3 py-2 rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-900 focus:outline-none focus:bg-white focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all"
-          >
-            {venues.map((venue) => (
-              <option key={venue.id} value={venue.id}>
-                {venue.name}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-zinc-700 mb-2">Select Venue</label>
+            <select
+              value={selectedVenue || ''}
+              onChange={(e) => setSelectedVenue(e.target.value)}
+              className="w-full sm:w-64 px-3 py-2 rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-900 focus:outline-none focus:bg-white focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all"
+            >
+              {venues.map((venue) => (
+                <option key={venue.id} value={venue.id}>
+                  {venue.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Grid */}
-      {shiftsLoading ? (
-        <div className="flex items-center justify-center min-h-96">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-8 h-8 rounded-lg bg-primary animate-pulse"></div>
-            <p className="text-sm text-zinc-500">Loading shifts...</p>
+      {/* Management Summary - Forecasts & Budgets */}
+      {selectedVenue && !shiftsLoading && (
+        <ManagementSummary venueId={selectedVenue} weekStart={weekStart} />
+      )}
+
+      {/* Rota Grid */}
+      <div>
+        <h2 className="text-lg font-semibold text-zinc-900 mb-4">Weekly Rota</h2>
+        {shiftsLoading ? (
+          <div className="flex items-center justify-center min-h-96">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-8 h-8 rounded-lg bg-primary animate-pulse"></div>
+              <p className="text-sm text-zinc-500">Loading shifts...</p>
+            </div>
           </div>
-        </div>
-      ) : selectedVenue ? (
-        <RotaGrid
-          staff={members}
-          shifts={shifts}
-          weekStart={weekStart}
-          venueId={selectedVenue}
-          onShiftAdded={refetchShifts}
-          onShiftDeleted={refetchShifts}
-        />
-      ) : null}
+        ) : selectedVenue ? (
+          <RotaGrid
+            staff={members}
+            shifts={shifts}
+            weekStart={weekStart}
+            venueId={selectedVenue}
+            onShiftAdded={refetchShifts}
+            onShiftDeleted={refetchShifts}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
