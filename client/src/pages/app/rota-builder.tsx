@@ -3,7 +3,6 @@ import { useRole } from '@/hooks/use-role';
 import { useManagedVenues } from '@/hooks/use-managed-venues';
 import { useVenueShifts } from '@/hooks/use-venue-shifts';
 import { useVenueMembers } from '@/hooks/use-venue-members';
-import { useVenueJobRoles } from '@/hooks/use-venue-job-roles';
 import { useLocation } from 'wouter';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,14 +17,25 @@ export default function RotaBuilder() {
   const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
   const [weekDate, setWeekDate] = useState(new Date());
   const weekStart = getWeekStart(weekDate);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  const weekEndStr = weekEnd.toISOString().split('T')[0];
+  
   const { shifts, isLoading: shiftsLoading, refetch: refetchShifts } = useVenueShifts(
     selectedVenue,
     weekStart
   );
   const { members } = useVenueMembers(selectedVenue);
-  const { jobRoles } = useVenueJobRoles(selectedVenue);
 
-  console.log('[RotaBuilder] selectedVenue:', selectedVenue, 'shiftsLoading:', shiftsLoading, 'shifts count:', shifts.length);
+  console.log('[RotaBuilder] selectedVenue:', selectedVenue, 'week:', weekStartStr, '-', weekEndStr);
+  console.log('[RotaBuilder] shiftsLoading:', shiftsLoading, 'shifts count:', shifts.length);
+  
+  // Derive unique job role names directly from shifts
+  const derivedDepartments = Array.from(
+    new Set((shifts || []).map(s => s.job_role_name).filter(Boolean))
+  ).sort();
+  console.log('[RotaBuilder] derived departments from shifts:', derivedDepartments);
 
   // Redirect STAFF away
   useEffect(() => {
@@ -138,17 +148,25 @@ export default function RotaBuilder() {
               <p className="text-sm text-zinc-500">Loading shifts...</p>
             </div>
           </div>
-        ) : selectedVenue ? (
+        ) : !selectedVenue ? (
+          <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-12 text-center">
+            <p className="text-zinc-600">Select a venue to view the rota.</p>
+          </div>
+        ) : shifts.length === 0 ? (
+          <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-12 text-center">
+            <p className="text-zinc-600">No shifts yet for this week.</p>
+          </div>
+        ) : (
           <RotaGrid
             staff={members}
             shifts={shifts}
             weekStart={weekStart}
             venueId={selectedVenue}
-            jobRoles={jobRoles}
+            derivedDepartments={derivedDepartments}
             onShiftAdded={refetchShifts}
             onShiftDeleted={refetchShifts}
           />
-        ) : null}
+        )}
       </div>
     </div>
   );

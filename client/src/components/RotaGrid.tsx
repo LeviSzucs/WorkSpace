@@ -11,12 +11,6 @@ interface StaffMember {
   department?: string;
 }
 
-interface JobRole {
-  id: string;
-  name: string;
-  department: string;
-}
-
 interface Shift {
   id: string;
   shift_date: string;
@@ -34,7 +28,7 @@ interface RotaGridProps {
   shifts: Shift[];
   weekStart: Date;
   venueId: string;
-  jobRoles: JobRole[];
+  derivedDepartments: string[];
   onShiftAdded: () => void;
   onShiftDeleted: () => void;
 }
@@ -44,15 +38,14 @@ export function RotaGrid({
   shifts,
   weekStart,
   venueId,
-  jobRoles,
+  derivedDepartments,
   onShiftAdded,
   onShiftDeleted,
 }: RotaGridProps) {
-  // Get unique departments from job_roles and sort them
+  // Use derived departments from shifts (no dependency on jobRoles)
   const departmentList = useMemo(() => {
-    const depts = [...new Set(jobRoles.map((role) => role.department))];
-    return depts.sort();
-  }, [jobRoles]);
+    return derivedDepartments || [];
+  }, [derivedDepartments]);
 
   const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(
     new Set(departmentList)
