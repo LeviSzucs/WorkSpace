@@ -5,7 +5,9 @@ import { formatDate } from '@/lib/date-utils';
 
 interface HolidayApprovalCardProps {
   id: string;
+  requesterName: string;
   requesterEmail: string;
+  venueName: string;
   startDate: string;
   endDate: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
@@ -17,7 +19,9 @@ interface HolidayApprovalCardProps {
 
 export function HolidayApprovalCard({
   id,
+  requesterName,
   requesterEmail,
+  venueName,
   startDate,
   endDate,
   status,
@@ -94,8 +98,9 @@ export function HolidayApprovalCard({
           <div className="flex items-center gap-3 mb-2">
             {getStatusIcon()}
             <div>
-              <h4 className="font-semibold text-zinc-900">{requesterEmail}</h4>
-              <p className="text-sm opacity-75">
+              <h4 className="font-semibold text-zinc-900">{requesterName}</h4>
+              <p className="text-sm opacity-75">{venueName}</p>
+              <p className="text-sm opacity-60">
                 {formatDate(new Date(startDate))} - {formatDate(new Date(endDate))}
               </p>
             </div>

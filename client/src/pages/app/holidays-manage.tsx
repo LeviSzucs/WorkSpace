@@ -125,7 +125,9 @@ export default function HolidaysManage() {
             <HolidayApprovalCard
               key={request.id}
               id={request.id}
+              requesterName={request.requester_name}
               requesterEmail={request.requester_email}
+              venueName={request.venue_name}
               startDate={request.start_date}
               endDate={request.end_date}
               status={request.status}

@@ -9,6 +9,9 @@ export interface ManagedHolidayRequest {
   id: string;
   user_id: string;
   requester_email: string;
+  requester_name: string;
+  venue_id: string;
+  venue_name: string;
   start_date: string;
   end_date: string;
   status: HolidayStatus;
@@ -55,7 +58,9 @@ export function useManagedHolidayRequests() {
           .select(`
             id,
             user_id,
-            users (email),
+            venue_id,
+            users (email, full_name),
+            venues (name),
             start_date,
             end_date,
             status,
@@ -72,6 +77,9 @@ export function useManagedHolidayRequests() {
           id: item.id,
           user_id: item.user_id,
           requester_email: item.users?.email || 'Unknown',
+          requester_name: item.users?.full_name || 'Unknown User',
+          venue_id: item.venue_id,
+          venue_name: item.venues?.name || 'Unknown Venue',
           start_date: item.start_date,
           end_date: item.end_date,
           status: item.status as HolidayStatus,
@@ -99,7 +107,9 @@ export function useManagedHolidayRequests() {
             .select(`
               id,
               user_id,
-              users (email),
+              venue_id,
+              users (email, full_name),
+              venues (name),
               start_date,
               end_date,
               status,
@@ -117,6 +127,9 @@ export function useManagedHolidayRequests() {
             id: item.id,
             user_id: item.user_id,
             requester_email: item.users?.email || 'Unknown',
+            requester_name: item.users?.full_name || 'Unknown User',
+            venue_id: item.venue_id,
+            venue_name: item.venues?.name || 'Unknown Venue',
             start_date: item.start_date,
             end_date: item.end_date,
             status: item.status as HolidayStatus,
