@@ -39,121 +39,69 @@ export function useManagedHolidayRequests() {
       setIsLoading(true);
       setError(null);
 
-      // Get all shift_assignments for venues where this user is VENUE_MANAGER or SUPERVISOR
-      // Then get holiday_requests from those venues
-      const { data: venueMembershipsData, error: venueMembershipsError } = await supabase
-        .from('venue_memberships')
-        .select('venue_id')
-        .eq('user_id', user.id)
-        .in('role', ['VENUE_MANAGER', 'SUPERVISOR']);
+      console.log('[useManagedHolidayRequests] Starting fetch, user:', user?.id, 'role:', role);
 
-      if (venueMembershipsError) throw venueMembershipsError;
+      // Get managed venue IDs based on role
+      let venueIds: string[] = [];
 
-      const managedVenueIds = (venueMembershipsData || []).map((vm: any) => vm.venue_id);
-
-      // If ORG_ADMIN or HEAD_OFFICE, get all holiday requests
       if (role === 'ORG_ADMIN' || role === 'HEAD_OFFICE') {
+        // Can see all venues - fetch all holiday requests
         console.log('[useManagedHolidayRequests] ORG_ADMIN/HEAD_OFFICE - fetching all holiday requests');
+      } else if (role === 'VENUE_MANAGER' || role === 'SUPERVISOR') {
+        // Get their managed venues
+        const { data: memberships, error: membershipError } = await supabase
+          .from('venue_memberships')
+          .select('venue_id')
+          .eq('user_id', user.id);
+
+        if (membershipError) throw membershipError;
         
-        const { data, error: fetchError } = await supabase
-          .from('holiday_requests')
-          .select(`
-            id,
-            user_id,
-            venue_id,
-            users (email, full_name),
-            venues (name),
-            starts_on,
-            ends_on,
-            status,
-            reason,
-            created_at,
-            reviewed_by,
-            reviewed_at
-          `)
-          .order('created_at', { ascending: false });
+        venueIds = (memberships || []).map((m: any) => m.venue_id).filter(Boolean);
+        console.log('[useManagedHolidayRequests] VENUE_MANAGER/SUPERVISOR - managed venues:', venueIds);
+      }
 
-        if (fetchError) throw fetchError;
+      // Query: SELECT * FROM web_holiday_requests
+      //        WHERE venue_id = $1 (if VENUE_MANAGER/SUPERVISOR)
+      //        ORDER BY created_at DESC
+      
+      let query = supabase
+        .from('web_holiday_requests')
+        .select('*');
 
-        console.log('[useManagedHolidayRequests] Returned', data?.length || 0, 'holiday requests');
+      // Filter by venue if manager/supervisor
+      if (venueIds.length > 0) {
+        query = query.in('venue_id', venueIds);
+      } else if (role !== 'ORG_ADMIN' && role !== 'HEAD_OFFICE') {
+        // Non-admin without venues - no access
+        setRequests([]);
+        setIsLoading(false);
+        return;
+      }
 
-        const formattedRequests: ManagedHolidayRequest[] = (data || []).map((item: any) => ({
-          id: item.id,
-          user_id: item.user_id,
-          requester_email: item.users?.email || 'Unknown',
-          requester_name: item.users?.full_name || 'Unknown User',
-          venue_id: item.venue_id,
-          venue_name: item.venues?.name || 'Unknown Venue',
-          start_date: item.starts_on,
-          end_date: item.ends_on,
-          status: item.status as HolidayStatus,
-          reason: item.reason,
-          created_at: item.created_at,
-          reviewed_by: item.reviewed_by,
-          reviewed_at: item.reviewed_at,
+      const { data, error: fetchError } = await query.order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      console.log('[useManagedHolidayRequests] Returned', data?.length || 0, 'holiday requests');
+
+      const formattedRequests: ManagedHolidayRequest[] = (data || [])
+        .map((item: any) => ({
+          id: item.id || '',
+          user_id: item.user_id || '',
+          requester_email: item.requester_email || 'Unknown',
+          requester_name: item.requester_name || 'Unknown User',
+          venue_id: item.venue_id || '',
+          venue_name: item.venue_name || 'Unknown Venue',
+          start_date: item.starts_on || '',
+          end_date: item.ends_on || '',
+          status: (item.status || 'PENDING') as HolidayStatus,
+          reason: item.reason || undefined,
+          created_at: item.created_at || '',
+          reviewed_by: item.reviewed_by || undefined,
+          reviewed_at: item.reviewed_at || undefined,
         }));
 
-        setRequests(formattedRequests);
-      } else if (managedVenueIds.length > 0) {
-        // Get holiday requests for staff in managed venues
-        const { data: staffData, error: staffError } = await supabase
-          .from('venue_memberships')
-          .select('user_id')
-          .in('venue_id', managedVenueIds);
-
-        if (staffError) throw staffError;
-
-        const staffIds = (staffData || []).map((vm: any) => vm.user_id);
-
-        if (staffIds.length > 0) {
-          console.log('[useManagedHolidayRequests] VENUE_MANAGER/SUPERVISOR - managed venues:', managedVenueIds, 'staff ids:', staffIds.length);
-          
-          const { data, error: fetchError } = await supabase
-            .from('holiday_requests')
-            .select(`
-              id,
-              user_id,
-              venue_id,
-              users (email, full_name),
-              venues (name),
-              starts_on,
-              ends_on,
-              status,
-              reason,
-              created_at,
-              reviewed_by,
-              reviewed_at
-            `)
-            .in('user_id', staffIds)
-            .order('created_at', { ascending: false });
-
-          if (fetchError) throw fetchError;
-
-          console.log('[useManagedHolidayRequests] Returned', data?.length || 0, 'holiday requests');
-
-          const formattedRequests: ManagedHolidayRequest[] = (data || []).map((item: any) => ({
-            id: item.id,
-            user_id: item.user_id,
-            requester_email: item.users?.email || 'Unknown',
-            requester_name: item.users?.full_name || 'Unknown User',
-            venue_id: item.venue_id,
-            venue_name: item.venues?.name || 'Unknown Venue',
-            start_date: item.starts_on,
-            end_date: item.ends_on,
-            status: item.status as HolidayStatus,
-            reason: item.reason,
-            created_at: item.created_at,
-            reviewed_by: item.reviewed_by,
-            reviewed_at: item.reviewed_at,
-          }));
-
-          setRequests(formattedRequests);
-        } else {
-          setRequests([]);
-        }
-      } else {
-        setRequests([]);
-      }
+      setRequests(formattedRequests);
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to fetch requests');
       setError(error);

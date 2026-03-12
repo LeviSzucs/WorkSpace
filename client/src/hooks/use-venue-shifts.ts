@@ -38,57 +38,61 @@ export function useVenueShifts(venueId: string | null, weekStartDate: Date) {
       const startDateStr = weekStartDate.toISOString().split('T')[0];
       const endDateStr = weekEndDate.toISOString().split('T')[0];
 
-      // Query: SELECT shifts.*, job_roles.name
-      //        FROM shifts
-      //        JOIN job_roles ON shifts.job_role_id = job_roles.id
-      //        WHERE shifts.venue_id = $1
-      //        AND shifts.shift_date >= $2
-      //        AND shifts.shift_date <= $3
-      //        ORDER BY shifts.shift_date, shifts.starts_at
+      // Query: SELECT * FROM web_rota_rows
+      //        WHERE venue_id = $1
+      //        AND shift_date >= $2
+      //        AND shift_date <= $3
+      //        ORDER BY shift_date, starts_at
       
       console.log('[useVenueShifts] Fetching shifts for venue:', venueId, 'week:', startDateStr, '-', endDateStr);
-      console.log('[useVenueShifts] Logged in user: check useAuth logs');
       
-      const { data: shiftsData, error: shiftsError } = await supabase
-        .from('shifts')
-        .select(`
-          id,
-          shift_date,
-          starts_at,
-          ends_at,
-          status,
-          job_role_id,
-          job_roles (name),
-          shift_assignments (
-            user_id,
-            users (id, email)
-          )
-        `)
+      const { data: rotas, error: rotasError } = await supabase
+        .from('web_rota_rows')
+        .select('*')
         .eq('venue_id', venueId)
         .gte('shift_date', startDateStr)
         .lte('shift_date', endDateStr)
         .order('shift_date', { ascending: true })
         .order('starts_at', { ascending: true });
 
-      if (shiftsError) throw shiftsError;
+      if (rotasError) throw rotasError;
 
-      console.log('[useVenueShifts] Returned', shiftsData?.length || 0, 'shifts');
+      console.log('[useVenueShifts] Returned', rotas?.length || 0, 'rota rows');
 
-      const formattedShifts: ShiftWithAssignments[] = (shiftsData || [])
-        .map((shift: any) => ({
-          id: shift.id,
-          shift_date: shift.shift_date,
-          start_time: shift.starts_at,
-          end_time: shift.ends_at,
-          status: shift.status,
-          job_role_id: shift.job_role_id,
-          job_role_name: shift.job_roles?.name || 'Unknown Role',
-          assigned_staff: (shift.shift_assignments || []).map((sa: any) => ({
-            user_id: sa.user_id,
-            user_name: sa.users?.email?.split('@')[0] || 'Unknown',
-          })),
-        }));
+      // Group rota rows by shift id to reconstruct assigned_staff array
+      const shiftsMap = new Map<string, ShiftWithAssignments>();
+      
+      (rotas || []).forEach((row: any) => {
+        if (!row?.id) return;
+        
+        if (!shiftsMap.has(row.id)) {
+          shiftsMap.set(row.id, {
+            id: row.id || '',
+            shift_date: row.shift_date || '',
+            start_time: row.starts_at || '',
+            end_time: row.ends_at || '',
+            status: row.status || '',
+            job_role_id: row.job_role_id || '',
+            job_role_name: row.job_role_name || 'Unknown Role',
+            assigned_staff: [],
+          });
+        }
+        
+        const shift = shiftsMap.get(row.id)!;
+        
+        // Add staff assignment if user info exists
+        if (row.user_id && row.user_email) {
+          const userName = row.user_email.split('@')[0] || 'Unknown';
+          if (!shift.assigned_staff.some(s => s.user_id === row.user_id)) {
+            shift.assigned_staff.push({
+              user_id: row.user_id,
+              user_name: userName,
+            });
+          }
+        }
+      });
 
+      const formattedShifts = Array.from(shiftsMap.values());
       setShifts(formattedShifts);
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to fetch shifts');
