@@ -1,4 +1,3 @@
-import { TrendingUp, DollarSign, Clock } from 'lucide-react';
 import { useVenueForecastData } from '@/hooks/use-venue-forecast-data';
 
 interface ManagementSummaryProps {
@@ -8,7 +7,7 @@ interface ManagementSummaryProps {
 
 export function ManagementSummary({ venueId, weekStart }: ManagementSummaryProps) {
   const weekStr = weekStart.toISOString().split('T')[0];
-  console.log('[ManagementSummary] rendering for venueId:', venueId, 'weekStart:', weekStr);
+  console.log('[ManagementSummary] rendering financial table for venueId:', venueId, 'weekStart:', weekStr);
   
   const { data: forecastData, isLoading } = useVenueForecastData(venueId, weekStart);
 
@@ -16,14 +15,8 @@ export function ManagementSummary({ venueId, weekStart }: ManagementSummaryProps
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white rounded-xl border border-zinc-200 p-6 animate-pulse">
-            <div className="h-4 bg-zinc-200 rounded w-20 mb-4"></div>
-            <div className="h-8 bg-zinc-200 rounded w-24 mb-2"></div>
-            <div className="h-3 bg-zinc-100 rounded w-32"></div>
-          </div>
-        ))}
+      <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+        <div className="animate-pulse h-20 bg-zinc-100"></div>
       </div>
     );
   }
@@ -31,12 +24,8 @@ export function ManagementSummary({ venueId, weekStart }: ManagementSummaryProps
   // Show stable empty state after loading completes
   if (!forecastData) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white rounded-xl border border-zinc-200 p-6">
-            <p className="text-xs text-zinc-500">No data available</p>
-          </div>
-        ))}
+      <div className="bg-white border border-zinc-200 rounded-lg p-4">
+        <p className="text-xs text-zinc-500">No financial data available</p>
       </div>
     );
   }
@@ -45,67 +34,34 @@ export function ManagementSummary({ venueId, weekStart }: ManagementSummaryProps
     forecastData.labourBudget > 0
       ? (forecastData.scheduledLabourCost / forecastData.labourBudget) * 100
       : 0;
-  const isOverBudget = budgetPercent > 100;
+
+  const summaryRows = [
+    { label: 'Forecast Revenue', value: `$${forecastData.forecastSales.toLocaleString()}` },
+    { label: 'Budget Revenue', value: '—' },
+    { label: 'Budget Wage %', value: `${forecastData.labourTargetPercent}%` },
+    { label: 'Wage Cost Forecast', value: `$${forecastData.scheduledLabourCost.toFixed(0)}` },
+    { label: 'Wage Cost Actual', value: '—' },
+    { label: 'Forecast Hours', value: `${forecastData.scheduledHours.toFixed(1)} hrs` },
+    { label: 'Actual Hours', value: '—' },
+  ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {/* Revenue Forecast */}
-      <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-zinc-900 uppercase">Forecast Sales</h3>
-          <TrendingUp className="w-4 h-4 text-emerald-600" />
-        </div>
-        <div className="text-xl font-display font-bold text-zinc-900">
-          ${forecastData.forecastSales.toLocaleString()}
-        </div>
-        <div className="text-xs text-zinc-500">
-          Target: {forecastData.labourTargetPercent}% labour of revenue
-        </div>
-      </div>
-
-      {/* Labor Cost Budget */}
-      <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-zinc-900 uppercase">Labour Cost</h3>
-          <DollarSign className="w-4 h-4 text-blue-600" />
-        </div>
-        <div className="text-xl font-display font-bold text-zinc-900">
-          ${forecastData.scheduledLabourCost.toFixed(0)} / ${forecastData.labourBudget.toFixed(0)}
-        </div>
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-600">
-              {isOverBudget ? 'Over budget' : 'Remaining'}
-            </span>
-            <span
-              className={`text-xs font-semibold ${isOverBudget ? 'text-red-600' : 'text-emerald-600'}`}
-            >
-              ${Math.abs(forecastData.variance).toFixed(0)}
-            </span>
-          </div>
-          <div className="w-full h-1.5 bg-zinc-200 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${
-                isOverBudget ? 'bg-red-500' : 'bg-emerald-500'
-              }`}
-              style={{ width: `${Math.min(budgetPercent, 100)}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Scheduled Hours */}
-      <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-zinc-900 uppercase">Scheduled Hours</h3>
-          <Clock className="w-4 h-4 text-violet-600" />
-        </div>
-        <div className="text-xl font-display font-bold text-zinc-900">
-          {forecastData.scheduledHours.toFixed(1)} hrs
-        </div>
-        <div className="text-xs text-zinc-500">
-          {budgetPercent.toFixed(0)}% of labour budget
-        </div>
+    <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <tbody>
+            {summaryRows.map((row, idx) => (
+              <tr key={idx} className="border-b border-zinc-100 last:border-b-0">
+                <td className="px-4 py-2 font-medium text-zinc-900 w-40">
+                  {row.label}
+                </td>
+                <td className="px-4 py-2 text-zinc-600">
+                  {row.value}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
