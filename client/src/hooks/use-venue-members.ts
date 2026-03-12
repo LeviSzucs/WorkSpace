@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase/client';
 
 export interface VenueMember {
   user_id: string;
-  email: string;
+  full_name: string;
   role: string;
 }
 
@@ -24,30 +24,30 @@ export function useVenueMembers(venueId: string | null) {
         setIsLoading(true);
         setError(null);
 
-        console.log('[useVenueMembers] Fetching members for venue:', venueId);
+        console.log('[useVenueMembers] Fetching members for selectedVenueId:', venueId);
 
-        // Query: SELECT venue_memberships.*, users.email
+        // Query: SELECT user_id, role, venue_id, profiles(full_name)
         //        FROM venue_memberships
-        //        JOIN users ON venue_memberships.user_id = users.id
-        //        WHERE venue_memberships.venue_id = $1
-        //        ORDER BY users.email
-        
+        //        WHERE venue_id = $1
+        //        (include all assignable roles: VENUE_MANAGER, SUPERVISOR, STAFF)
         const { data, error: fetchError } = await supabase
           .from('venue_memberships')
-          .select('user_id, role, users (email)')
-          .eq('venue_id', venueId)
-          .order('users(email)', { ascending: true });
+          .select('user_id, role, venue_id, profiles(full_name)')
+          .eq('venue_id', venueId);
 
         if (fetchError) throw fetchError;
 
-        console.log('[useVenueMembers] Returned', data?.length || 0, 'members');
+        console.log('[useVenueMembers] venue_memberships returned', data?.length || 0, 'rows');
+        console.log('[useVenueMembers] roles returned:', (data || []).map((d: any) => d.role).join(', '));
 
         const formattedMembers: VenueMember[] = (data || [])
           .map((item: any) => ({
             user_id: item.user_id,
-            email: item.users?.email || 'Unknown',
+            full_name: item.profiles?.full_name || 'Unnamed user',
             role: item.role,
           }));
+
+        console.log('[useVenueMembers] Staff rows rendered:', formattedMembers.length);
 
         setMembers(formattedMembers);
       } catch (err) {

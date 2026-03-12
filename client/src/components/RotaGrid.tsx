@@ -6,9 +6,8 @@ import { numberToTime, moveRight, moveLeft, moveDown, moveUp, type GridCell } fr
 
 interface StaffMember {
   user_id: string;
-  email: string;
+  full_name: string;
   role: string;
-  department?: string;
 }
 
 interface JobRole {
@@ -48,12 +47,13 @@ export function RotaGrid({
   onShiftAdded,
   onShiftDeleted,
 }: RotaGridProps) {
-  console.log('[RotaGrid] jobRoles count:', jobRoles?.length || 0);
+  console.log('[RotaGrid] jobRoles count:', jobRoles?.length || 0, 'staff count:', staff?.length || 0);
   
   // Extract unique departments from job_roles (each job role name is a department)
   const departmentList = useMemo(() => {
     if (!jobRoles || jobRoles.length === 0) return [];
     const depts = [...new Set(jobRoles.map((role) => role.department).filter(Boolean))];
+    console.log('[RotaGrid] derived departments:', depts);
     return depts.sort();
   }, [jobRoles]);
 
@@ -77,31 +77,19 @@ export function RotaGrid({
       if (dept) structure[dept] = [];
     });
 
-    // Map staff to departments based on job roles they're assigned to
-    // For now, assign based on available job roles in their department
+    // Add all staff to all departments (simple assignment for now)
     (staff || []).forEach((member) => {
       if (!member || !member.user_id) return;
-      
-      // Get all departments for this staff member's roles
-      const memberDepts = (jobRoles || [])
-        .filter((role) => role.department) // Only departments with roles
-        .map((role) => role.department);
-      
-      // Assign to all departments they have roles in, default to first dept if none found
-      if (memberDepts.length > 0) {
-        const uniqueDepts = [...new Set(memberDepts)];
-        uniqueDepts.forEach((dept) => {
-          if (structure[dept]) {
-            structure[dept].push(member);
-          }
-        });
-      } else if (departmentList[0]) {
-        structure[departmentList[0]].push(member);
-      }
+      departmentList.forEach((dept) => {
+        if (structure[dept]) {
+          structure[dept].push(member);
+        }
+      });
     });
 
+    console.log('[RotaGrid] grid structure built with departments:', departmentList, 'total staff:', staff?.length || 0);
     return structure;
-  }, [staff, jobRoles, departmentList]);
+  }, [staff, departmentList]);
 
   const departments = gridStructure;
 
@@ -232,14 +220,6 @@ export function RotaGrid({
     );
   }
 
-  if (staff.length === 0) {
-    return (
-      <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-12 text-center">
-        <p className="text-zinc-600">No staff assigned to this venue.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="overflow-x-auto bg-white rounded-lg border border-zinc-200" ref={gridRef}>
       <div className="inline-block min-w-full" onKeyDown={handleKeyDown}>
@@ -293,8 +273,8 @@ export function RotaGrid({
               {/* Staff Rows */}
               {isExpanded &&
                 deptMembers.map((member, staffIdx) => {
-                  if (!member || !member.email) return null;
-                  const userName = member.email.split('@')[0];
+                  if (!member || !member.user_id) return null;
+                  const userName = member.full_name || 'Unnamed user';
                   const globalStaffIndex = flatStaffList.findIndex((s) => s?.user_id === member.user_id);
                   return (
                     <div key={member.user_id} className="flex border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
