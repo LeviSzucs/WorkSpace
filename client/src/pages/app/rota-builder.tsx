@@ -4,6 +4,7 @@ import { useManagedVenues } from '@/hooks/use-managed-venues';
 import { useVenueShifts } from '@/hooks/use-venue-shifts';
 import { useVenueMembers } from '@/hooks/use-venue-members';
 import { useVenueJobRoles } from '@/hooks/use-venue-job-roles';
+import { useStaffJobRoles } from '@/hooks/use-staff-job-roles';
 import { useLocation } from 'wouter';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,15 +31,16 @@ export default function RotaBuilder() {
   );
   const { members, isLoading: membersLoading } = useVenueMembers(selectedVenue);
   const { jobRoles, isLoading: jobRolesLoading } = useVenueJobRoles(selectedVenue);
+  const { staffJobRoles, isLoading: staffJobRolesLoading } = useStaffJobRoles(selectedVenue);
 
   console.log('[RotaBuilder] Week start logic: Monday-based week (Mon-Sun)');
   console.log('[RotaBuilder] selectedVenue:', selectedVenue, 'week:', weekStartStr, '-', weekEndStr);
-  console.log('[RotaBuilder] departments loaded:', jobRoles.length, 'staff loaded:', members.length);
+  console.log('[RotaBuilder] departments loaded:', jobRoles.length, 'staff-department mappings loaded:', staffJobRoles.length);
   console.log('[RotaBuilder] shifts loaded:', shifts.length, 'shiftsLoading:', shiftsLoading);
   console.log('[RotaBuilder] Grid columns:', DAYS_OF_WEEK.join(', '));
   
-  // Grid is ready once departments and staff are loaded (shifts are optional/can be empty)
-  const gridReady = !jobRolesLoading && !membersLoading && selectedVenue;
+  // Grid is ready once departments and staff mappings are loaded (shifts are optional/can be empty)
+  const gridReady = !jobRolesLoading && !staffJobRolesLoading && selectedVenue;
 
   // Redirect STAFF away
   useEffect(() => {
@@ -163,7 +165,7 @@ export default function RotaBuilder() {
           </div>
         ) : (
           <RotaGrid
-            staff={members}
+            staffJobRoles={staffJobRoles}
             shifts={shifts || []}
             weekStart={weekStart}
             venueId={selectedVenue}

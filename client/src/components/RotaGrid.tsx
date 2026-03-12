@@ -4,10 +4,11 @@ import { ShiftGridCell } from './ShiftGridCell';
 import { DAYS_OF_WEEK } from '@/lib/week-utils';
 import { numberToTime, moveRight, moveLeft, moveDown, moveUp, type GridCell } from '@/lib/keyboard-utils';
 
-interface StaffMember {
+interface StaffJobRoleMapping {
   user_id: string;
   full_name: string;
-  role: string;
+  job_role_id: string;
+  job_role_name: string;
 }
 
 interface JobRole {
@@ -29,7 +30,7 @@ interface Shift {
 }
 
 interface RotaGridProps {
-  staff: StaffMember[];
+  staffJobRoles: StaffJobRoleMapping[];
   shifts: Shift[];
   weekStart: Date;
   venueId: string;
@@ -39,7 +40,7 @@ interface RotaGridProps {
 }
 
 export function RotaGrid({
-  staff,
+  staffJobRoles,
   shifts,
   weekStart,
   venueId,
@@ -47,7 +48,7 @@ export function RotaGrid({
   onShiftAdded,
   onShiftDeleted,
 }: RotaGridProps) {
-  console.log('[RotaGrid] jobRoles count:', jobRoles?.length || 0, 'staff count:', staff?.length || 0);
+  console.log('[RotaGrid] jobRoles count:', jobRoles?.length || 0, 'staffJobRoles count:', staffJobRoles?.length || 0);
   
   // Extract unique departments from job_roles (each job role name is a department)
   const departmentList = useMemo(() => {
@@ -68,28 +69,31 @@ export function RotaGrid({
   const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Build grid structure: departments with staff rows underneath
-  // Department → Staff rows for that department
+  // Department → Staff rows for that department (using explicit staff_job_roles mappings)
   const gridStructure = useMemo(() => {
-    const structure: Record<string, StaffMember[]> = {};
+    const structure: Record<string, StaffJobRoleMapping[]> = {};
     
     // Initialize all departments from job_roles
     departmentList.forEach((dept) => {
       if (dept) structure[dept] = [];
     });
 
-    // Add all staff to all departments (simple assignment for now)
-    (staff || []).forEach((member) => {
-      if (!member || !member.user_id) return;
-      departmentList.forEach((dept) => {
-        if (structure[dept]) {
-          structure[dept].push(member);
+    // Add staff to departments based on explicit staff_job_roles mappings
+    (staffJobRoles || []).forEach((mapping) => {
+      if (!mapping || !mapping.user_id) return;
+      // Find the department for this job role
+      const jobRole = (jobRoles || []).find((jr) => jr.name === mapping.job_role_name);
+      if (jobRole && structure[jobRole.department]) {
+        // Check if staff member already added to this department (avoid duplicates)
+        if (!structure[jobRole.department].some((s) => s.user_id === mapping.user_id)) {
+          structure[jobRole.department].push(mapping);
         }
-      });
+      }
     });
 
-    console.log('[RotaGrid] grid structure built with departments:', departmentList, 'total staff:', staff?.length || 0);
+    console.log('[RotaGrid] grid structure built with explicit mappings:', departmentList, 'total staff-department entries:', staffJobRoles?.length || 0);
     return structure;
-  }, [staff, departmentList]);
+  }, [staffJobRoles, departmentList, jobRoles]);
 
   const departments = gridStructure;
 
@@ -114,7 +118,7 @@ export function RotaGrid({
 
   // Build flat list of staff across all departments for navigation
   const flatStaffList = useMemo(() => {
-    const list: StaffMember[] = [];
+    const list: StaffJobRoleMapping[] = [];
     departmentList.forEach((dept) => {
       list.push(...(departments[dept] || []));
     });
@@ -272,12 +276,12 @@ export function RotaGrid({
 
               {/* Staff Rows */}
               {isExpanded &&
-                deptMembers.map((member, staffIdx) => {
-                  if (!member || !member.user_id) return null;
-                  const userName = member.full_name || 'Unnamed user';
-                  const globalStaffIndex = flatStaffList.findIndex((s) => s?.user_id === member.user_id);
+                deptMembers.map((mapping, staffIdx) => {
+                  if (!mapping || !mapping.user_id) return null;
+                  const userName = mapping.full_name || 'Unnamed user';
+                  const globalStaffIndex = flatStaffList.findIndex((s) => s?.user_id === mapping.user_id);
                   return (
-                    <div key={member.user_id} className="flex border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
+                    <div key={mapping.user_id} className="flex border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
                       <div className="w-48 px-4 py-2 font-medium text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-20 truncate">
                         {userName}
                       </div>
@@ -285,13 +289,13 @@ export function RotaGrid({
                         const dayDate = new Date(weekStart);
                         dayDate.setDate(dayDate.getDate() + dayIndex);
                         const dateStr = dayDate.toISOString().split('T')[0];
-                        const staffShifts = getStaffShifts(member.user_id, dateStr);
+                        const staffShifts = getStaffShifts(mapping.user_id, dateStr);
                         const cellKey = `cell-${globalStaffIndex}-${dayIndex}`;
                         const isFocused = focusedCell?.staffIndex === globalStaffIndex && focusedCell?.dayIndex === dayIndex;
 
                         return (
                           <div
-                            key={`${member.user_id}-${dateStr}`}
+                            key={`${mapping.user_id}-${dateStr}`}
                             className={`w-40 px-3 py-2 border-r border-zinc-200 ${isFocused ? 'bg-blue-50 ring-2 ring-blue-400' : ''}`}
                             ref={(el) => {
                               if (el) cellRefs.current.set(cellKey, el);
@@ -301,7 +305,7 @@ export function RotaGrid({
                             onFocus={() => setFocusedCell({ staffIndex: globalStaffIndex, dayIndex })}
                           >
                             <ShiftGridCell
-                              staffId={member.user_id}
+                              staffId={mapping.user_id}
                               staffName={userName}
                               date={dateStr}
                               shifts={staffShifts}
