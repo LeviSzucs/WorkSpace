@@ -5,7 +5,9 @@ export interface StaffJobRoleMapping {
   user_id: string;
   full_name: string;
   job_role_id: string;
-  job_role_name: string;
+  venue_id: string;
+  department_name: string;
+  venue_role: string;
 }
 
 export function useStaffJobRoles(venueId: string | null) {
@@ -25,33 +27,38 @@ export function useStaffJobRoles(venueId: string | null) {
         setIsLoading(true);
         setError(null);
 
-        console.log('[useStaffJobRoles] Fetching staff-to-department mappings for venue:', venueId);
+        console.log('[useStaffJobRoles] Fetching staff-to-department mappings from web_staff_department_rows for venue:', venueId);
 
-        // Query: SELECT staff_job_roles.user_id, profiles.full_name, 
-        //               staff_job_roles.job_role_id, job_roles.name
-        //        FROM staff_job_roles
-        //        JOIN job_roles ON staff_job_roles.job_role_id = job_roles.id
-        //        JOIN profiles ON staff_job_roles.user_id = profiles.user_id
-        //        WHERE job_roles.venue_id = $1
+        // Query: SELECT user_id, job_role_id, venue_id, department_name, full_name, venue_role
+        //        FROM web_staff_department_rows
+        //        WHERE venue_id = $1
+        //        ORDER BY department_name, full_name
         const { data, error: fetchError } = await supabase
-          .from('staff_job_roles')
-          .select('user_id, job_role_id, job_roles(name, venue_id), profiles(full_name)')
-          .eq('job_roles.venue_id', venueId);
+          .from('web_staff_department_rows')
+          .select('user_id, job_role_id, venue_id, department_name, full_name, venue_role')
+          .eq('venue_id', venueId)
+          .order('department_name', { ascending: true })
+          .order('full_name', { ascending: true });
 
         if (fetchError) throw fetchError;
 
-        console.log('[useStaffJobRoles] staff_job_roles returned', data?.length || 0, 'mappings');
+        console.log('[useStaffJobRoles] web_staff_department_rows returned', data?.length || 0, 'rows');
 
-        const formattedMappings: StaffJobRoleMapping[] = (data || [])
-          .filter((item: any) => item.job_roles?.venue_id === venueId)
-          .map((item: any) => ({
-            user_id: item.user_id,
-            full_name: item.profiles?.full_name || 'Unnamed user',
-            job_role_id: item.job_role_id,
-            job_role_name: item.job_roles?.name || 'Unknown Role',
-          }));
+        const formattedMappings: StaffJobRoleMapping[] = (data || []).map((item: any) => ({
+          user_id: item.user_id,
+          full_name: item.full_name || 'Unnamed user',
+          job_role_id: item.job_role_id,
+          venue_id: item.venue_id,
+          department_name: item.department_name,
+          venue_role: item.venue_role,
+        }));
+
+        const departmentNames = [...new Set(formattedMappings.map((m) => m.department_name))];
+        const staffNames = formattedMappings.map((m) => m.full_name);
 
         console.log('[useStaffJobRoles] Processed', formattedMappings.length, 'staff-department mappings');
+        console.log('[useStaffJobRoles] Departments:', departmentNames);
+        console.log('[useStaffJobRoles] Staff:', staffNames);
 
         setStaffJobRoles(formattedMappings);
       } catch (err) {

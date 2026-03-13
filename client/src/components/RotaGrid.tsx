@@ -8,7 +8,9 @@ interface StaffJobRoleMapping {
   user_id: string;
   full_name: string;
   job_role_id: string;
-  job_role_name: string;
+  venue_id: string;
+  department_name: string;
+  venue_role: string;
 }
 
 interface JobRole {
@@ -69,7 +71,7 @@ export function RotaGrid({
   const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Build grid structure: departments with staff rows underneath
-  // Department → Staff rows for that department (using explicit staff_job_roles mappings)
+  // Department → Staff rows for that department (using web_staff_department_rows view)
   const gridStructure = useMemo(() => {
     const structure: Record<string, StaffJobRoleMapping[]> = {};
     
@@ -78,22 +80,21 @@ export function RotaGrid({
       if (dept) structure[dept] = [];
     });
 
-    // Add staff to departments based on explicit staff_job_roles mappings
+    // Add staff to departments based on department_name from view
     (staffJobRoles || []).forEach((mapping) => {
-      if (!mapping || !mapping.user_id) return;
-      // Find the department for this job role
-      const jobRole = (jobRoles || []).find((jr) => jr.name === mapping.job_role_name);
-      if (jobRole && structure[jobRole.department]) {
+      if (!mapping || !mapping.user_id || !mapping.department_name) return;
+      // Use department_name directly from view
+      if (structure[mapping.department_name]) {
         // Check if staff member already added to this department (avoid duplicates)
-        if (!structure[jobRole.department].some((s) => s.user_id === mapping.user_id)) {
-          structure[jobRole.department].push(mapping);
+        if (!structure[mapping.department_name].some((s) => s.user_id === mapping.user_id)) {
+          structure[mapping.department_name].push(mapping);
         }
       }
     });
 
-    console.log('[RotaGrid] grid structure built with explicit mappings:', departmentList, 'total staff-department entries:', staffJobRoles?.length || 0);
+    console.log('[RotaGrid] grid structure built from web_staff_department_rows:', departmentList, 'total staff-department entries:', staffJobRoles?.length || 0);
     return structure;
-  }, [staffJobRoles, departmentList, jobRoles]);
+  }, [staffJobRoles, departmentList]);
 
   const departments = gridStructure;
 
