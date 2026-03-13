@@ -150,8 +150,7 @@ export default function RotaBuilder() {
       )}
 
       {/* Rota Grid */}
-      <div>
-        <h2 className="text-base font-semibold text-zinc-900 mb-2">Weekly Rota</h2>
+      <div className="w-full">
         {!gridReady ? (
           <div className="flex items-center justify-center min-h-96">
             <div className="flex flex-col items-center gap-4">

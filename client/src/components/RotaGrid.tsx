@@ -226,24 +226,23 @@ export function RotaGrid({
   }
 
   return (
-    <div className="overflow-x-auto bg-white rounded-lg border border-zinc-200" ref={gridRef}>
-      <div className="inline-block min-w-full" onKeyDown={handleKeyDown}>
+    <div className="w-full overflow-x-auto bg-white rounded-lg border border-zinc-200" ref={gridRef}>
+      <div className="w-full min-w-[700px]" onKeyDown={handleKeyDown}>
         {/* Header Row */}
-        <div className="flex sticky top-0 z-10 bg-white border-b border-zinc-200">
-          <div className="w-48 px-4 py-3 font-semibold text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-20">
+        <div className="flex sticky top-0 z-10 bg-zinc-50 border-b-2 border-zinc-300">
+          <div className="w-36 shrink-0 px-3 py-1.5 font-semibold text-xs text-zinc-500 uppercase tracking-wide sticky left-0 bg-zinc-50 border-r border-zinc-200 z-20">
             Staff
           </div>
           {DAYS_OF_WEEK.map((dayName, dayIndex) => {
             const dayDate = new Date(weekStart);
             dayDate.setDate(dayDate.getDate() + dayIndex);
-            const dateStr = dayDate.toISOString().split('T')[0];
             return (
               <div
                 key={dayIndex}
-                className="w-40 px-4 py-3 font-semibold text-sm text-zinc-900 border-r border-zinc-200 text-center"
+                className="flex-1 min-w-[90px] px-2 py-1.5 border-r border-zinc-200 text-center"
               >
-                <div className="text-xs text-zinc-500 uppercase">{dayName}</div>
-                <div className="text-sm">{dayDate.getDate()}</div>
+                <div className="text-xs font-semibold text-zinc-500 uppercase">{dayName.slice(0, 3)}</div>
+                <div className="text-sm font-bold text-zinc-900">{dayDate.getDate()}</div>
               </div>
             );
           })}
@@ -260,30 +259,30 @@ export function RotaGrid({
             <div key={deptName}>
               {/* Department Header */}
               <div
-                className="flex items-center sticky left-0 z-20 bg-zinc-50 border-t border-b border-zinc-200 cursor-pointer hover:bg-zinc-100 transition-colors"
+                className="flex items-center w-full bg-zinc-100 border-t border-b border-zinc-200 cursor-pointer hover:bg-zinc-200 transition-colors"
                 onClick={() => toggleDepartment(deptName)}
               >
-                <div className="w-48 px-4 py-2 flex items-center gap-2 border-r border-zinc-200">
+                <div className="w-36 shrink-0 px-3 py-1 flex items-center gap-1.5 border-r border-zinc-200">
                   {isExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-zinc-600" />
+                    <ChevronDown className="w-3 h-3 text-zinc-500 shrink-0" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-zinc-600" />
+                    <ChevronRight className="w-3 h-3 text-zinc-500 shrink-0" />
                   )}
-                  <span className="text-sm font-semibold text-zinc-900">{deptName}</span>
-                  <span className="text-xs text-zinc-500">({deptMembers.length})</span>
+                  <span className="text-xs font-bold text-zinc-800 uppercase tracking-wide truncate">{deptName}</span>
+                  <span className="text-xs text-zinc-500 shrink-0">({deptMembers.length})</span>
                 </div>
-                <div className="flex-1 h-full" />
+                <div className="flex-1" />
               </div>
 
               {/* Staff Rows */}
               {isExpanded &&
-                deptMembers.map((mapping, staffIdx) => {
+                deptMembers.map((mapping) => {
                   if (!mapping || !mapping.user_id) return null;
                   const userName = mapping.full_name || 'Unnamed user';
                   const globalStaffIndex = flatStaffList.findIndex((s) => s?.user_id === mapping.user_id);
                   return (
                     <div key={mapping.user_id} className="flex border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
-                      <div className="w-48 px-4 py-2 font-medium text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-20 truncate">
+                      <div className="w-36 shrink-0 px-3 py-1 text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-20 truncate">
                         {userName}
                       </div>
                       {DAYS_OF_WEEK.map((_, dayIndex) => {
@@ -297,7 +296,7 @@ export function RotaGrid({
                         return (
                           <div
                             key={`${mapping.user_id}-${dateStr}`}
-                            className={`w-40 px-3 py-2 border-r border-zinc-200 ${isFocused ? 'bg-blue-50 ring-2 ring-blue-400' : ''}`}
+                            className={`flex-1 min-w-[90px] px-1.5 py-1 border-r border-zinc-200 ${isFocused ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : ''}`}
                             ref={(el) => {
                               if (el) cellRefs.current.set(cellKey, el);
                             }}
@@ -326,9 +325,8 @@ export function RotaGrid({
       </div>
 
       {/* Keyboard Hints */}
-      <div className="px-4 py-3 bg-zinc-50 border-t border-zinc-200 text-xs text-zinc-600 space-y-1">
-        <p>⌨️ <strong>Keyboard shortcuts:</strong> Number keys for time (9→09:00, 17→17:00) • Tab/Shift+Tab to move days • Arrow keys to move staff • Enter to edit • Escape to exit</p>
-        <p>🖱️ Click any cell to add/edit shifts directly • Hover to delete shifts</p>
+      <div className="px-3 py-1.5 bg-zinc-50 border-t border-zinc-200 text-xs text-zinc-500">
+        <strong>Keyboard:</strong> Numbers for time • Tab/Shift+Tab for days • Arrow keys for rows • Enter to edit • Esc to clear
       </div>
     </div>
   );

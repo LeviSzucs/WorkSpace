@@ -74,13 +74,12 @@ export function ShiftGridCell({
 
   return (
     <div
-      className="min-h-24 p-2 border rounded-lg border-zinc-200 bg-zinc-50 cursor-pointer hover:bg-zinc-100 transition-colors relative group"
+      className="min-h-[44px] p-1 border rounded border-zinc-200 bg-zinc-50 cursor-pointer hover:bg-zinc-100 transition-colors relative group"
       onClick={() => setIsEditing(true)}
     >
       {shifts.length === 0 ? (
-        <div className="h-20 flex flex-col items-center justify-center gap-2">
-          <p className="text-xs text-zinc-400">Click to add shift</p>
-          <Plus className="w-3 h-3 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="h-9 flex flex-col items-center justify-center gap-1">
+          <p className="text-xs text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity">+ add</p>
         </div>
       ) : (
         <div className="space-y-1">
