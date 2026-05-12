@@ -54,6 +54,10 @@ export function ShiftGridCell({
   const startRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLInputElement>(null);
 
+  // Sync refs so blur handler sees current values without stale closures
+  const editingRef = useRef(false);
+  const savingRef = useRef(false);
+
   const setRef = useCallback(
     (el: HTMLDivElement | null) => {
       (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
@@ -66,33 +70,38 @@ export function ShiftGridCell({
     setStartTime('09:00');
     setEndTime('17:00');
     setError(null);
+    editingRef.current = true;
     setEditing(true);
     requestAnimationFrame(() => startRef.current?.focus());
   }, []);
 
   const closeEditor = useCallback(() => {
+    editingRef.current = false;
     setEditing(false);
     setError(null);
     containerRef.current?.focus();
   }, []);
 
   const save = useCallback(
-    async (andThen?: () => void) => {
-      if (saving) return;
-      if (startTime >= endTime) {
+    async (startVal: string, endVal: string, andThen?: () => void) => {
+      if (savingRef.current) return;
+      if (startVal >= endVal) {
         setError('End must be after start');
         return;
       }
+      savingRef.current = true;
       setSaving(true);
       setError(null);
+      editingRef.current = false;
+      setEditing(false);
       try {
         const { data: shift, error: shiftErr } = await supabase
           .from('shifts')
           .insert({
             venue_id: venueId,
             shift_date: date,
-            start_time: startTime,
-            end_time: endTime,
+            start_time: startVal,
+            end_time: endVal,
             job_role_id: jobRoleId,
             status: 'DRAFT',
           })
@@ -103,16 +112,18 @@ export function ShiftGridCell({
           .from('shift_assignments')
           .insert({ shift_id: shift.id, user_id: staffId });
         if (assignErr) throw assignErr;
-        setEditing(false);
         onShiftSaved();
         andThen?.();
       } catch (err) {
+        editingRef.current = true;
+        setEditing(true);
         setError(err instanceof Error ? err.message : 'Failed to save');
       } finally {
+        savingRef.current = false;
         setSaving(false);
       }
     },
-    [saving, startTime, endTime, venueId, date, jobRoleId, staffId, onShiftSaved],
+    [venueId, date, jobRoleId, staffId, onShiftSaved],
   );
 
   const deleteShift = useCallback(
@@ -131,6 +142,22 @@ export function ShiftGridCell({
       }
     },
     [staffId, onShiftDeleted],
+  );
+
+  // Auto-save when focus leaves the cell entirely (e.g. clicking another cell)
+  const handleContainerBlur = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      if (!editingRef.current || savingRef.current) return;
+      if (containerRef.current?.contains(e.relatedTarget as Node)) return;
+      const s = startRef.current?.value ?? startTime;
+      const en = endRef.current?.value ?? endTime;
+      if (s < en) {
+        void save(s, en);
+      } else {
+        closeEditor();
+      }
+    },
+    [startTime, endTime, save, closeEditor],
   );
 
   const handleContainerKey = useCallback(
@@ -176,9 +203,10 @@ export function ShiftGridCell({
       onFocus={!editing ? onActivate : undefined}
       onClick={!editing ? openEditor : undefined}
       onKeyDown={handleContainerKey}
+      onBlur={handleContainerBlur}
     >
       {editing ? (
-        <div className="rounded border-2 border-blue-500 bg-blue-50 p-1.5 space-y-1.5">
+        <div className="rounded border-2 border-blue-500 bg-blue-50 p-1.5 space-y-1">
           {error && <p className="text-[10px] text-red-600 leading-tight">{error}</p>}
           <div className="flex items-center gap-1">
             <input
@@ -206,10 +234,10 @@ export function ShiftGridCell({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  save(() => containerRef.current?.focus());
+                  void save(startTime, endTime, () => containerRef.current?.focus());
                 } else if (e.key === 'Tab') {
                   e.preventDefault();
-                  save(() => onNavigate(e.shiftKey ? 'left' : 'right'));
+                  void save(startTime, endTime, () => onNavigate(e.shiftKey ? 'left' : 'right'));
                 } else if (e.key === 'Escape') {
                   closeEditor();
                 }
@@ -217,24 +245,9 @@ export function ShiftGridCell({
               disabled={saving}
               className="w-[74px] text-xs px-1.5 py-0.5 rounded border border-blue-300 bg-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
             />
+            {saving && <span className="text-[10px] text-zinc-400 shrink-0">saving…</span>}
           </div>
-          <div className="flex gap-1">
-            <button
-              tabIndex={-1}
-              onClick={closeEditor}
-              className="flex-1 text-[10px] py-0.5 rounded border border-zinc-200 text-zinc-500 hover:bg-zinc-100 transition-colors"
-            >
-              Esc
-            </button>
-            <button
-              tabIndex={-1}
-              onClick={() => save(() => containerRef.current?.focus())}
-              disabled={saving}
-              className="flex-1 text-[10px] py-0.5 rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors font-medium"
-            >
-              {saving ? '…' : '↵ Save'}
-            </button>
-          </div>
+          <p className="text-[9px] text-zinc-400 leading-none">Tab to save · Esc to cancel</p>
         </div>
       ) : (
         <div className="min-h-[38px] flex flex-col gap-0.5">
