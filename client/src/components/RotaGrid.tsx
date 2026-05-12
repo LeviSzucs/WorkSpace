@@ -33,6 +33,7 @@ interface RotaGridProps {
   shifts: Shift[];
   weekStart: Date;
   venueId: string;
+  organisationId: string;
   jobRoles: JobRole[];
   onShiftAdded: () => void;
   onShiftDeleted: () => void;
@@ -43,6 +44,7 @@ export function RotaGrid({
   shifts,
   weekStart,
   venueId,
+  organisationId,
   jobRoles,
   onShiftAdded,
   onShiftDeleted,
@@ -228,6 +230,7 @@ export function RotaGrid({
                             jobRoleId={mapping.job_role_id}
                             roleColor={roleColor}
                             venueId={venueId}
+                            organisationId={organisationId}
                             isActive={isActive}
                             onActivate={() => setActiveCell({ si, di })}
                             onShiftSaved={onShiftAdded}

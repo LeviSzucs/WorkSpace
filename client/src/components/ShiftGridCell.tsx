@@ -17,6 +17,7 @@ export interface ShiftGridCellProps {
   jobRoleId: string;
   roleColor: string;
   venueId: string;
+  organisationId: string;
   isActive: boolean;
   onActivate: () => void;
   onShiftSaved: () => void;
@@ -36,6 +37,7 @@ export function ShiftGridCell({
   jobRoleId,
   roleColor,
   venueId,
+  organisationId,
   isActive,
   onActivate,
   onShiftSaved,
@@ -115,6 +117,7 @@ export function ShiftGridCell({
         const { data: shift, error: shiftErr } = await supabase
           .from('shifts')
           .insert({
+            organisation_id: organisationId,
             venue_id: venueId,
             starts_at: `${date}T${startVal}:00`,
             ends_at: `${endDate}T${endVal}:00`,
@@ -140,7 +143,7 @@ export function ShiftGridCell({
         savingRef.current = false;
       }
     },
-    [venueId, date, jobRoleId, staffId, onShiftSaved],
+    [organisationId, venueId, date, jobRoleId, staffId, onShiftSaved],
   );
 
   const commitAndMove = useCallback(

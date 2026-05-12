@@ -17,6 +17,8 @@ export default function RotaBuilder() {
   const { role, isLoading: roleLoading } = useRole();
   const { venues, isLoading: venuesLoading } = useManagedVenues();
   const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
+  const selectedVenueObj = venues.find((v) => v.id === selectedVenue) ?? null;
+  const organisationId = selectedVenueObj?.organisation_id ?? '';
   // Initialize with the current Monday
   const [weekDate, setWeekDate] = useState(() => getWeekStart(new Date()));
   const weekStart = getWeekStart(weekDate);
@@ -170,6 +172,7 @@ export default function RotaBuilder() {
             shifts={shifts || []}
             weekStart={weekStart}
             venueId={selectedVenue}
+            organisationId={organisationId}
             jobRoles={jobRoles}
             onShiftAdded={refetchShifts}
             onShiftDeleted={refetchShifts}

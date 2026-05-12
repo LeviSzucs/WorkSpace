@@ -6,6 +6,7 @@ import { useRole } from './use-role';
 export interface Venue {
   id: string;
   name: string;
+  organisation_id: string;
 }
 
 export function useManagedVenues() {
@@ -34,7 +35,7 @@ export function useManagedVenues() {
         if (role === 'ORG_ADMIN' || role === 'HEAD_OFFICE') {
           const { data, error: fetchError } = await supabase
             .from('venues')
-            .select('id, name')
+            .select('id, name, organisation_id')
             .order('name', { ascending: true });
 
           if (fetchError) throw fetchError;
@@ -44,7 +45,7 @@ export function useManagedVenues() {
           // Get venues from venue_memberships where user_id = current user
           const { data, error: fetchError } = await supabase
             .from('venue_memberships')
-            .select('venues (id, name)')
+            .select('venues (id, name, organisation_id)')
             .eq('user_id', user.id);
 
           if (fetchError) throw fetchError;
