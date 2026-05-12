@@ -47,7 +47,7 @@ export function ShiftGridCell({
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   // Optimistic entries shown immediately on commit, removed once real data arrives
   const [optimisticShifts, setOptimisticShifts] = useState<ShiftItem[]>([]);
 
@@ -132,10 +132,10 @@ export function ShiftGridCell({
         onShiftSaved();
       } catch (err) {
         console.error('[ShiftGridCell] Save failed:', err);
-        // Remove the optimistic chip and flash the cell red
         setOptimisticShifts((prev) => prev.filter((s) => s.id !== optimisticId));
-        setSaveError(true);
-        setTimeout(() => setSaveError(false), 2500);
+        const msg = (err as any)?.message ?? (err as any)?.error_description ?? String(err);
+        setSaveError(msg);
+        setTimeout(() => setSaveError(null), 6000);
       } finally {
         savingRef.current = false;
       }
@@ -230,7 +230,7 @@ export function ShiftGridCell({
       className={[
         'flex-1 border-r border-zinc-200 p-1 outline-none transition-colors group',
         saveError
-          ? 'ring-2 ring-inset ring-red-400 bg-red-50'
+          ? 'ring-2 ring-inset ring-red-400 bg-red-50 relative'
           : editing
           ? ''
           : isActive
@@ -285,6 +285,9 @@ export function ShiftGridCell({
           </p>
         </div>
       ) : (
+        {saveError && (
+          <p className="text-[9px] text-red-600 leading-tight px-0.5 pb-0.5 break-all">{saveError}</p>
+        )}
         <div className="min-h-[36px] flex flex-col gap-0.5">
           {displayShifts.length === 0 ? (
             <div className="min-h-[36px] flex items-center justify-center select-none">
