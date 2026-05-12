@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 
@@ -48,13 +48,25 @@ export function ShiftGridCell({
   const [endTime, setEndTime] = useState('17:00');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState(false);
+  // Optimistic entries shown immediately on commit, removed once real data arrives
+  const [optimisticShifts, setOptimisticShifts] = useState<ShiftItem[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const startRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLInputElement>(null);
-  // Sync refs so blur/navigate handlers see current values without stale closures
   const editingRef = useRef(false);
   const savingRef = useRef(false);
+
+  // Merge real + optimistic, deduplicating by HH:MM time once real data arrives
+  const displayShifts = useMemo(() => {
+    const pending = optimisticShifts.filter(
+      (os) =>
+        !shifts.some(
+          (s) => fmtTime(s.start_time) === os.start_time && fmtTime(s.end_time) === os.end_time,
+        ),
+    );
+    return [...shifts, ...pending];
+  }, [shifts, optimisticShifts]);
 
   const setRef = useCallback(
     (el: HTMLDivElement | null) => {
@@ -78,14 +90,19 @@ export function ShiftGridCell({
     containerRef.current?.focus();
   }, []);
 
-  // Fire-and-forget: caller closes the editor and navigates before calling this.
-  // On failure shows a red flash on the cell so the user knows to re-enter.
   const save = useCallback(
     async (startVal: string, endVal: string) => {
       if (savingRef.current || startVal === endVal) return;
       savingRef.current = true;
 
-      // Hospitality shifts cross midnight: 19:00–02:00 ends on the next day
+      // Show chip immediately — don't wait for the DB round-trip
+      const optimisticId = `opt-${Date.now()}`;
+      setOptimisticShifts((prev) => [
+        ...prev,
+        { id: optimisticId, start_time: startVal, end_time: endVal, job_role_name: '' },
+      ]);
+
+      // Hospitality shifts can cross midnight (e.g. 19:00–02:00)
       const crossesMidnight = endVal < startVal;
       let endDate = date;
       if (crossesMidnight) {
@@ -115,6 +132,8 @@ export function ShiftGridCell({
         onShiftSaved();
       } catch (err) {
         console.error('[ShiftGridCell] Save failed:', err);
+        // Remove the optimistic chip and flash the cell red
+        setOptimisticShifts((prev) => prev.filter((s) => s.id !== optimisticId));
         setSaveError(true);
         setTimeout(() => setSaveError(false), 2500);
       } finally {
@@ -124,7 +143,6 @@ export function ShiftGridCell({
     [venueId, date, jobRoleId, staffId, onShiftSaved],
   );
 
-  // Close + save + move right/left  — Tab always navigates instantly
   const commitAndMove = useCallback(
     (dir: 'right' | 'left') => {
       const s = startRef.current?.value ?? startTime;
@@ -137,7 +155,6 @@ export function ShiftGridCell({
     [startTime, endTime, save, onNavigate],
   );
 
-  // Close + save + stay on cell  — Enter
   const commitAndStay = useCallback(() => {
     const s = startRef.current?.value ?? startTime;
     const en = endRef.current?.value ?? endTime;
@@ -147,7 +164,6 @@ export function ShiftGridCell({
     containerRef.current?.focus();
   }, [startTime, endTime, save]);
 
-  // Auto-save when focus leaves the cell entirely (e.g. clicking another cell)
   const handleContainerBlur = useCallback(
     (e: React.FocusEvent<HTMLDivElement>) => {
       if (!editingRef.current || savingRef.current) return;
@@ -183,9 +199,10 @@ export function ShiftGridCell({
         openEditor();
         return;
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && shifts.length > 0) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && displayShifts.length > 0) {
         e.preventDefault();
-        deleteShift(shifts[shifts.length - 1].id);
+        const last = displayShifts[displayShifts.length - 1];
+        if (!last.id.startsWith('opt-')) deleteShift(last.id);
         return;
       }
       if (e.key === 'Tab') {
@@ -198,7 +215,7 @@ export function ShiftGridCell({
       };
       if (dirs[e.key]) { e.preventDefault(); onNavigate(dirs[e.key]); }
     },
-    [editing, shifts, openEditor, deleteShift, onNavigate],
+    [editing, displayShifts, openEditor, deleteShift, onNavigate],
   );
 
   const timeInputClass =
@@ -269,12 +286,12 @@ export function ShiftGridCell({
         </div>
       ) : (
         <div className="min-h-[36px] flex flex-col gap-0.5">
-          {shifts.length === 0 ? (
+          {displayShifts.length === 0 ? (
             <div className="min-h-[36px] flex items-center justify-center select-none">
               {isActive && <span className="text-[10px] text-zinc-400">↵ to add</span>}
             </div>
           ) : (
-            shifts.map((shift) => (
+            displayShifts.map((shift) => (
               <div
                 key={shift.id}
                 className="rounded px-1 py-0.5 flex items-center gap-1 group/chip"
@@ -283,14 +300,16 @@ export function ShiftGridCell({
                 <span className="font-mono text-[11px] text-zinc-800 flex-1 leading-relaxed truncate">
                   {fmtTime(shift.start_time)}–{fmtTime(shift.end_time)}
                 </span>
-                <button
-                  tabIndex={-1}
-                  onClick={(e) => { e.stopPropagation(); deleteShift(shift.id); }}
-                  disabled={deletingId === shift.id}
-                  className="opacity-0 group-hover/chip:opacity-100 transition-opacity shrink-0"
-                >
-                  <X className="w-2.5 h-2.5 text-zinc-400 hover:text-red-500" />
-                </button>
+                {!shift.id.startsWith('opt-') && (
+                  <button
+                    tabIndex={-1}
+                    onClick={(e) => { e.stopPropagation(); deleteShift(shift.id); }}
+                    disabled={deletingId === shift.id}
+                    className="opacity-0 group-hover/chip:opacity-100 transition-opacity shrink-0"
+                  >
+                    <X className="w-2.5 h-2.5 text-zinc-400 hover:text-red-500" />
+                  </button>
+                )}
               </div>
             ))
           )}
