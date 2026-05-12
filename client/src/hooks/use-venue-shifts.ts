@@ -9,6 +9,8 @@ export interface ShiftWithAssignments {
   status: string;
   job_role_id: string;
   job_role_name: string;
+  break_minutes: number;
+  notes: string;
   assigned_staff: Array<{
     user_id: string;
     user_name: string;
@@ -74,6 +76,8 @@ export function useVenueShifts(venueId: string | null, weekStartDate: Date) {
             status: row.status || '',
             job_role_id: row.job_role_id || '',
             job_role_name: row.job_role_name || 'Unknown Role',
+            break_minutes: row.break_minutes ?? 0,
+            notes: row.notes ?? '',
             assigned_staff: [],
           });
         }

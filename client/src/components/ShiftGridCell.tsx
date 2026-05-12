@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
-import { X } from 'lucide-react';
+import { X, Coffee, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 
 export interface ShiftItem {
@@ -8,6 +8,8 @@ export interface ShiftItem {
   end_time: string;
   job_role_name: string;
   status?: string;
+  break_minutes?: number;
+  notes?: string;
 }
 
 export interface ShiftGridCellProps {
@@ -50,8 +52,13 @@ export function ShiftGridCell({
   const [endTime, setEndTime] = useState('17:00');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // Optimistic entries shown immediately on commit, removed once real data arrives
   const [optimisticShifts, setOptimisticShifts] = useState<ShiftItem[]>([]);
+
+  const [breakEditId, setBreakEditId] = useState<string | null>(null);
+  const [breakInput, setBreakInput] = useState('0');
+
+  const [noteModalShiftId, setNoteModalShiftId] = useState<string | null>(null);
+  const [noteInput, setNoteInput] = useState('');
 
   const containerRef = useRef<HTMLDivElement>(null);
   const startRef = useRef<HTMLInputElement>(null);
@@ -59,7 +66,6 @@ export function ShiftGridCell({
   const editingRef = useRef(false);
   const savingRef = useRef(false);
 
-  // Merge real + optimistic, deduplicating by HH:MM time once real data arrives
   const displayShifts = useMemo(() => {
     const pending = optimisticShifts.filter(
       (os) =>
@@ -97,14 +103,12 @@ export function ShiftGridCell({
       if (savingRef.current || startVal === endVal) return;
       savingRef.current = true;
 
-      // Show chip immediately — don't wait for the DB round-trip
       const optimisticId = `opt-${Date.now()}`;
       setOptimisticShifts((prev) => [
         ...prev,
         { id: optimisticId, start_time: startVal, end_time: endVal, job_role_name: '' },
       ]);
 
-      // Hospitality shifts can cross midnight (e.g. 19:00–02:00)
       const crossesMidnight = endVal < startVal;
       let endDate = date;
       if (crossesMidnight) {
@@ -144,6 +148,38 @@ export function ShiftGridCell({
       }
     },
     [organisationId, venueId, date, jobRoleId, staffId, onShiftSaved],
+  );
+
+  const saveBreak = useCallback(
+    async (shiftId: string, minutes: number) => {
+      try {
+        const { error } = await supabase
+          .from('shifts')
+          .update({ break_minutes: minutes })
+          .eq('id', shiftId);
+        if (error) throw error;
+        onShiftSaved();
+      } catch (err) {
+        console.error('[ShiftGridCell] Break save failed:', err);
+      }
+    },
+    [onShiftSaved],
+  );
+
+  const saveNote = useCallback(
+    async (shiftId: string, note: string) => {
+      try {
+        const { error } = await supabase
+          .from('shifts')
+          .update({ notes: note })
+          .eq('id', shiftId);
+        if (error) throw error;
+        onShiftSaved();
+      } catch (err) {
+        console.error('[ShiftGridCell] Note save failed:', err);
+      }
+    },
+    [onShiftSaved],
   );
 
   const commitAndMove = useCallback(
@@ -196,7 +232,7 @@ export function ShiftGridCell({
 
   const handleContainerKey = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (editing) return;
+      if (editing || noteModalShiftId) return;
       if (e.key === 'Enter' || /^[0-9]$/.test(e.key)) {
         e.preventDefault();
         openEditor();
@@ -218,7 +254,7 @@ export function ShiftGridCell({
       };
       if (dirs[e.key]) { e.preventDefault(); onNavigate(dirs[e.key]); }
     },
-    [editing, displayShifts, openEditor, deleteShift, onNavigate],
+    [editing, noteModalShiftId, displayShifts, openEditor, deleteShift, onNavigate],
   );
 
   const timeInputClass =
@@ -231,9 +267,9 @@ export function ShiftGridCell({
       ref={setRef}
       tabIndex={editing ? -1 : 0}
       className={[
-        'flex-1 border-r border-zinc-200 p-1 outline-none transition-colors group',
+        'flex-1 border-r border-zinc-200 p-1 outline-none transition-colors group min-w-0',
         saveError
-          ? 'ring-2 ring-inset ring-red-400 bg-red-50 relative'
+          ? 'ring-2 ring-inset ring-red-400 bg-red-50'
           : editing
           ? ''
           : isActive
@@ -289,39 +325,178 @@ export function ShiftGridCell({
         </div>
       ) : (
         <>
-        {saveError && (
-          <p className="text-[9px] text-red-600 leading-tight px-0.5 pb-0.5 break-all">{saveError}</p>
-        )}
-        <div className="min-h-[36px] flex flex-col gap-0.5">
-          {displayShifts.length === 0 ? (
-            <div className="min-h-[36px] flex items-center justify-center select-none">
-              {isActive && <span className="text-[10px] text-zinc-400">↵ to add</span>}
-            </div>
-          ) : (
-            displayShifts.map((shift) => (
-              <div
-                key={shift.id}
-                className="rounded px-1 py-0.5 flex items-center gap-1 group/chip"
-                style={{ backgroundColor: roleColor + '18', borderLeft: `3px solid ${roleColor}` }}
-              >
-                <span className="font-mono text-[11px] text-zinc-800 flex-1 leading-relaxed truncate">
-                  {fmtTime(shift.start_time)}–{fmtTime(shift.end_time)}
-                </span>
-                {!shift.id.startsWith('opt-') && (
-                  <button
-                    tabIndex={-1}
-                    onClick={(e) => { e.stopPropagation(); deleteShift(shift.id); }}
-                    disabled={deletingId === shift.id}
-                    className="opacity-0 group-hover/chip:opacity-100 transition-opacity shrink-0"
-                  >
-                    <X className="w-2.5 h-2.5 text-zinc-400 hover:text-red-500" />
-                  </button>
-                )}
-              </div>
-            ))
+          {saveError && (
+            <p className="text-[9px] text-red-600 leading-tight px-0.5 pb-0.5 break-all">{saveError}</p>
           )}
-        </div>
+          <div className="min-h-[36px] flex flex-col gap-0.5">
+            {displayShifts.length === 0 ? (
+              <div className="min-h-[36px] flex items-center justify-center select-none">
+                {isActive && <span className="text-[10px] text-zinc-400">↵ to add</span>}
+              </div>
+            ) : (
+              displayShifts.map((shift) => {
+                const isOptimistic = shift.id.startsWith('opt-');
+                const isEditingBreak = breakEditId === shift.id;
+
+                return (
+                  <div
+                    key={shift.id}
+                    className="rounded px-1 py-0.5 flex flex-col gap-0.5 group/chip"
+                    style={{ backgroundColor: roleColor + '18', borderLeft: `3px solid ${roleColor}` }}
+                  >
+                    {/* Time row + action icons */}
+                    <div className="flex items-center gap-0.5">
+                      <span className="font-mono text-[11px] text-zinc-800 flex-1 leading-relaxed truncate">
+                        {fmtTime(shift.start_time)}–{fmtTime(shift.end_time)}
+                      </span>
+                      {!isOptimistic && (
+                        <>
+                          <button
+                            tabIndex={-1}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBreakEditId(isEditingBreak ? null : shift.id);
+                              setBreakInput(String(shift.break_minutes ?? 0));
+                            }}
+                            title="Set break"
+                            className="opacity-0 group-hover/chip:opacity-100 transition-opacity shrink-0"
+                          >
+                            <Coffee className="w-2.5 h-2.5 text-zinc-400 hover:text-amber-500" />
+                          </button>
+                          <button
+                            tabIndex={-1}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNoteModalShiftId(shift.id);
+                              setNoteInput(shift.notes ?? '');
+                            }}
+                            title="Add note"
+                            className="opacity-0 group-hover/chip:opacity-100 transition-opacity shrink-0"
+                          >
+                            <Pencil className="w-2.5 h-2.5 text-zinc-400 hover:text-blue-500" />
+                          </button>
+                          <button
+                            tabIndex={-1}
+                            onClick={(e) => { e.stopPropagation(); deleteShift(shift.id); }}
+                            disabled={deletingId === shift.id}
+                            className="opacity-0 group-hover/chip:opacity-100 transition-opacity shrink-0"
+                          >
+                            <X className="w-2.5 h-2.5 text-zinc-400 hover:text-red-500" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Break editor */}
+                    {isEditingBreak && (
+                      <div
+                        className="flex items-center gap-1 pt-0.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Coffee className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                        <input
+                          type="number"
+                          value={breakInput}
+                          onChange={(e) => setBreakInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              saveBreak(shift.id, parseInt(breakInput) || 0);
+                              setBreakEditId(null);
+                            } else if (e.key === 'Escape') {
+                              setBreakEditId(null);
+                            }
+                          }}
+                          className="w-10 text-[9px] font-mono px-0.5 border border-amber-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+                          min="0"
+                          max="480"
+                          autoFocus
+                        />
+                        <span className="text-[9px] text-zinc-500 shrink-0">min</span>
+                        <button
+                          tabIndex={-1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            saveBreak(shift.id, parseInt(breakInput) || 0);
+                            setBreakEditId(null);
+                          }}
+                          className="text-[10px] text-green-600 hover:text-green-700 font-bold"
+                        >✓</button>
+                        <button
+                          tabIndex={-1}
+                          onClick={(e) => { e.stopPropagation(); setBreakEditId(null); }}
+                          className="text-[10px] text-zinc-400 hover:text-zinc-600"
+                        >✗</button>
+                      </div>
+                    )}
+
+                    {/* Break display */}
+                    {!isEditingBreak && (shift.break_minutes ?? 0) > 0 && (
+                      <div className="flex items-center gap-0.5">
+                        <Coffee className="w-2 h-2 text-amber-400 shrink-0" />
+                        <span className="text-[8px] text-zinc-500">{shift.break_minutes}m break</span>
+                      </div>
+                    )}
+
+                    {/* Note preview */}
+                    {shift.notes && !isOptimistic && (
+                      <p className="text-[8px] text-zinc-500 truncate leading-tight italic">{shift.notes}</p>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </>
+      )}
+
+      {/* Notes modal — rendered inside cell DOM but visually fixed */}
+      {noteModalShiftId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={(e) => { e.stopPropagation(); setNoteModalShiftId(null); }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-5 w-80 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setNoteModalShiftId(null)}
+              className="absolute top-3 right-3 text-zinc-400 hover:text-zinc-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <h3 className="font-semibold text-zinc-900 text-sm mb-3">Shift Note</h3>
+            <textarea
+              value={noteInput}
+              onChange={(e) => setNoteInput(e.target.value)}
+              placeholder="Add a note for this shift…"
+              rows={4}
+              autoFocus
+              className="w-full border border-zinc-200 rounded-lg p-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setNoteModalShiftId(null);
+              }}
+            />
+            <div className="flex justify-end gap-2 mt-3">
+              <button
+                onClick={() => setNoteModalShiftId(null)}
+                className="px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  saveNote(noteModalShiftId, noteInput);
+                  setNoteModalShiftId(null);
+                }}
+                className="px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -25,6 +25,8 @@ interface Shift {
   start_time: string;
   end_time: string;
   job_role_name: string;
+  break_minutes: number;
+  notes: string;
   assigned_staff: Array<{ user_id: string; user_name: string }>;
 }
 
@@ -37,6 +39,11 @@ interface RotaGridProps {
   jobRoles: JobRole[];
   onShiftAdded: () => void;
   onShiftDeleted: () => void;
+}
+
+function timeToMinutes(t: string): number {
+  const [h, m] = (t || '').substring(0, 5).split(':').map(Number);
+  return (isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m);
 }
 
 export function RotaGrid({
@@ -75,7 +82,6 @@ export function RotaGrid({
     return out;
   }, [staffJobRoles, departmentList]);
 
-  // Only visible (expanded) staff are navigable — keeps siCursor in sync with visibleStaff
   const visibleStaff = useMemo(() => {
     const list: StaffJobRoleMapping[] = [];
     departmentList.forEach((d) => {
@@ -126,8 +132,27 @@ export function RotaGrid({
           start_time: s.start_time,
           end_time: s.end_time,
           job_role_name: s.job_role_name,
+          break_minutes: s.break_minutes,
+          notes: s.notes,
         })),
     [shifts],
+  );
+
+  const getWeekHours = useCallback(
+    (staffId: string): number => {
+      return DAYS_OF_WEEK.reduce((total, _, di) => {
+        const d = new Date(weekStart);
+        d.setDate(d.getDate() + di);
+        const dateStr = d.toISOString().split('T')[0];
+        return total + getStaffShifts(staffId, dateStr).reduce((sum, s) => {
+          const start = timeToMinutes(s.start_time);
+          const end = timeToMinutes(s.end_time);
+          const duration = end > start ? end - start : (24 * 60 - start) + end;
+          return sum + Math.max(0, duration - (s.break_minutes ?? 0)) / 60;
+        }, 0);
+      }, 0);
+    },
+    [getStaffShifts, weekStart],
   );
 
   const toggleDept = useCallback((d: string) => {
@@ -146,7 +171,6 @@ export function RotaGrid({
     );
   }
 
-  // siCursor tracks visible-staff index across all expanded depts, reset each render
   let siCursor = 0;
 
   return (
@@ -154,19 +178,24 @@ export function RotaGrid({
       <div className="w-full">
         {/* Header row */}
         <div className="flex sticky top-0 z-10 bg-zinc-50 border-b-2 border-zinc-300">
-          <div className="w-40 shrink-0 px-3 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wide sticky left-0 bg-zinc-50 border-r border-zinc-200 z-20">
+          <div className="w-36 shrink-0 px-3 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wide sticky left-0 bg-zinc-50 border-r border-zinc-200 z-20">
             Staff
           </div>
           {DAYS_OF_WEEK.map((dayName, di) => {
             const d = new Date(weekStart);
             d.setDate(d.getDate() + di);
             return (
-              <div key={di} className="flex-1 px-2 py-1.5 border-r border-zinc-200 text-center min-w-0">
-                <div className="text-xs font-semibold text-zinc-500 uppercase">{dayName.slice(0, 3)}</div>
+              <div key={di} className="flex-1 min-w-0 px-1 py-1.5 border-r border-zinc-200 text-center">
+                <div className="text-[10px] font-semibold text-zinc-500 uppercase">{dayName.slice(0, 3)}</div>
                 <div className="text-sm font-bold text-zinc-900">{d.getDate()}</div>
               </div>
             );
           })}
+          {/* Total hours header */}
+          <div className="w-16 shrink-0 px-1 py-1.5 text-center border-l-2 border-zinc-300 bg-zinc-100">
+            <div className="text-[10px] font-semibold text-zinc-500 uppercase">Total</div>
+            <div className="text-xs font-bold text-zinc-700">Hrs</div>
+          </div>
         </div>
 
         {/* Department sections */}
@@ -187,7 +216,7 @@ export function RotaGrid({
                 style={{ borderLeft: `4px solid ${deptColor}` }}
                 onClick={() => toggleDept(deptName)}
               >
-                <div className="w-40 shrink-0 px-3 py-1 flex items-center gap-1.5 border-r border-zinc-200">
+                <div className="w-36 shrink-0 px-3 py-1 flex items-center gap-1.5 border-r border-zinc-200">
                   {isExpanded ? (
                     <ChevronDown className="w-3 h-3 text-zinc-500 shrink-0" />
                   ) : (
@@ -199,6 +228,7 @@ export function RotaGrid({
                   <span className="text-xs text-zinc-500 shrink-0">({members.length})</span>
                 </div>
                 <div className="flex-1" />
+                <div className="w-16 shrink-0 border-l-2 border-zinc-200" />
               </div>
 
               {/* Staff rows */}
@@ -208,10 +238,11 @@ export function RotaGrid({
                   const si = siCursor++;
                   const userName = mapping.full_name || 'Unknown';
                   const roleColor = jobRoleMap.get(mapping.job_role_id)?.colour ?? '#3b82f6';
+                  const weekHours = getWeekHours(mapping.user_id);
 
                   return (
                     <div key={mapping.user_id} className="flex border-b border-zinc-100">
-                      <div className="w-40 shrink-0 px-3 py-1 flex items-center text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-10 truncate">
+                      <div className="w-36 shrink-0 px-3 py-1 flex items-center text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-10 truncate">
                         {userName}
                       </div>
                       {DAYS_OF_WEEK.map((_, di) => {
@@ -240,6 +271,12 @@ export function RotaGrid({
                           />
                         );
                       })}
+                      {/* Total hours cell */}
+                      <div className="w-16 shrink-0 flex items-center justify-center border-l-2 border-zinc-200 bg-zinc-50">
+                        <span className={`text-xs font-semibold ${weekHours > 0 ? 'text-zinc-800' : 'text-zinc-300'}`}>
+                          {weekHours > 0 ? `${weekHours.toFixed(1)}h` : '–'}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
