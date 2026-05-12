@@ -5,6 +5,7 @@ export interface JobRole {
   id: string;
   name: string;
   department: string;
+  colour: string;
 }
 
 export function useVenueJobRoles(venueId: string | null) {
@@ -32,7 +33,7 @@ export function useVenueJobRoles(venueId: string | null) {
         //        ORDER BY name
         const { data, error: fetchError } = await supabase
           .from('job_roles')
-          .select('id, name, venue_id')
+          .select('id, name, venue_id, colour')
           .eq('venue_id', venueId)
           .order('name', { ascending: true });
 
@@ -43,7 +44,8 @@ export function useVenueJobRoles(venueId: string | null) {
         const formattedRoles: JobRole[] = (data || []).map((role: any) => ({
           id: role.id,
           name: role.name,
-          department: role.name, // Job role name IS the department
+          department: role.name,
+          colour: role.colour ?? '#3b82f6',
         }));
 
         setJobRoles(formattedRoles);

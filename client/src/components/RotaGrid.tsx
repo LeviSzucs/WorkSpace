@@ -1,8 +1,7 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { ShiftGridCell } from './ShiftGridCell';
+import { ShiftGridCell, type ShiftItem } from './ShiftGridCell';
 import { DAYS_OF_WEEK } from '@/lib/week-utils';
-import { numberToTime, moveRight, moveLeft, moveDown, moveUp, type GridCell } from '@/lib/keyboard-utils';
 
 interface StaffJobRoleMapping {
   user_id: string;
@@ -17,6 +16,7 @@ interface JobRole {
   id: string;
   name: string;
   department: string;
+  colour: string;
 }
 
 interface Shift {
@@ -25,10 +25,7 @@ interface Shift {
   start_time: string;
   end_time: string;
   job_role_name: string;
-  assigned_staff: Array<{
-    user_id: string;
-    user_name: string;
-  }>;
+  assigned_staff: Array<{ user_id: string; user_name: string }>;
 }
 
 interface RotaGridProps {
@@ -41,6 +38,12 @@ interface RotaGridProps {
   onShiftDeleted: () => void;
 }
 
+function calcHours(start: string, end: string): number {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  return Math.max(0, (eh * 60 + em - (sh * 60 + sm)) / 60);
+}
+
 export function RotaGrid({
   staffJobRoles,
   shifts,
@@ -50,173 +53,103 @@ export function RotaGrid({
   onShiftAdded,
   onShiftDeleted,
 }: RotaGridProps) {
-  console.log('[RotaGrid] jobRoles count:', jobRoles?.length || 0, 'staffJobRoles count:', staffJobRoles?.length || 0);
-  
-  // Extract unique departments from job_roles (each job role name is a department)
+  const jobRoleMap = useMemo(
+    () => new Map((jobRoles || []).map((r) => [r.id, r])),
+    [jobRoles],
+  );
+
   const departmentList = useMemo(() => {
-    if (!jobRoles || jobRoles.length === 0) return [];
-    const depts = [...new Set(jobRoles.map((role) => role.department).filter(Boolean))];
-    console.log('[RotaGrid] derived departments:', depts);
-    return depts.sort();
+    if (!jobRoles?.length) return [];
+    return [...new Set(jobRoles.map((r) => r.department).filter(Boolean))].sort();
   }, [jobRoles]);
 
-  const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(
-    new Set(departmentList)
+  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(
+    () => new Set(departmentList),
   );
 
-  // Keyboard navigation state
-  const [focusedCell, setFocusedCell] = useState<GridCell | null>(null);
-  const [numberInput, setNumberInput] = useState('');
-  const gridRef = useRef<HTMLDivElement>(null);
-  const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-
-  // Build grid structure: departments with staff rows underneath
-  // Department → Staff rows for that department (using web_staff_department_rows view)
   const gridStructure = useMemo(() => {
-    const structure: Record<string, StaffJobRoleMapping[]> = {};
-    
-    // Initialize all departments from job_roles
-    departmentList.forEach((dept) => {
-      if (dept) structure[dept] = [];
-    });
-
-    // Add staff to departments based on department_name from view
-    (staffJobRoles || []).forEach((mapping) => {
-      if (!mapping || !mapping.user_id || !mapping.department_name) return;
-      // Use department_name directly from view
-      if (structure[mapping.department_name]) {
-        // Check if staff member already added to this department (avoid duplicates)
-        if (!structure[mapping.department_name].some((s) => s.user_id === mapping.user_id)) {
-          structure[mapping.department_name].push(mapping);
-        }
+    const out: Record<string, StaffJobRoleMapping[]> = {};
+    departmentList.forEach((d) => { out[d] = []; });
+    (staffJobRoles || []).forEach((m) => {
+      if (!m?.user_id || !m?.department_name) return;
+      if (out[m.department_name] && !out[m.department_name].some((s) => s.user_id === m.user_id)) {
+        out[m.department_name].push(m);
       }
     });
-
-    console.log('[RotaGrid] grid structure built from web_staff_department_rows:', departmentList, 'total staff-department entries:', staffJobRoles?.length || 0);
-    return structure;
+    return out;
   }, [staffJobRoles, departmentList]);
 
-  const departments = gridStructure;
-
-  const toggleDepartment = (dept: string) => {
-    const newExpanded = new Set(expandedDepartments);
-    if (newExpanded.has(dept)) {
-      newExpanded.delete(dept);
-    } else {
-      newExpanded.add(dept);
-    }
-    setExpandedDepartments(newExpanded);
-  };
-
-  const getStaffShifts = (staffId: string, date: string) => {
-    if (!staffId || !date) return [];
-    return (shifts || []).filter(
-      (shift) =>
-        shift?.shift_date === date &&
-        (shift?.assigned_staff || []).some((s) => s?.user_id === staffId)
-    );
-  };
-
-  // Build flat list of staff across all departments for navigation
-  const flatStaffList = useMemo(() => {
+  // Only visible (expanded) staff are navigable — keeps siCursor in sync with visibleStaff
+  const visibleStaff = useMemo(() => {
     const list: StaffJobRoleMapping[] = [];
-    departmentList.forEach((dept) => {
-      list.push(...(departments[dept] || []));
+    departmentList.forEach((d) => {
+      if (expandedDepts.has(d)) list.push(...(gridStructure[d] || []));
     });
     return list;
-  }, [departments, departmentList]);
+  }, [gridStructure, departmentList, expandedDepts]);
 
-  // Handle keyboard events
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!focusedCell) return;
+  const [activeCell, setActiveCell] = useState<{ si: number; di: number } | null>(null);
+  const cellRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
-      // Number input for times
-      if (e.key >= '0' && e.key <= '9') {
-        e.preventDefault();
-        const newInput = numberInput + e.key;
-        const time = numberToTime(newInput);
-        if (time) {
-          setNumberInput(newInput);
-        }
-        return;
+  const focusCell = useCallback((si: number, di: number) => {
+    cellRefs.current.get(`${si}-${di}`)?.focus();
+  }, []);
+
+  const navigate = useCallback(
+    (si: number, di: number, dir: 'right' | 'left' | 'up' | 'down') => {
+      const maxDi = DAYS_OF_WEEK.length - 1;
+      const maxSi = visibleStaff.length - 1;
+      let nsi = si;
+      let ndi = di;
+      if (dir === 'right') {
+        if (di < maxDi) ndi = di + 1;
+        else if (si < maxSi) { nsi = si + 1; ndi = 0; }
+      } else if (dir === 'left') {
+        if (di > 0) ndi = di - 1;
+        else if (si > 0) { nsi = si - 1; ndi = maxDi; }
+      } else if (dir === 'up') {
+        nsi = Math.max(0, si - 1);
+      } else {
+        nsi = Math.min(maxSi, si + 1);
       }
-
-      // Backspace to clear number input
-      if (e.key === 'Backspace' && numberInput) {
-        e.preventDefault();
-        setNumberInput(numberInput.slice(0, -1));
-        return;
-      }
-
-      // Tab / Shift+Tab for day navigation
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const newCell = e.shiftKey
-          ? moveLeft(focusedCell)
-          : moveRight(focusedCell, DAYS_OF_WEEK.length);
-        setFocusedCell(newCell);
-        setNumberInput('');
-        focusCell(newCell);
-        return;
-      }
-
-      // Arrow keys for staff navigation
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const newCell = moveUp(focusedCell);
-        setFocusedCell(newCell);
-        setNumberInput('');
-        focusCell(newCell);
-        return;
-      }
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const newCell = moveDown(focusedCell, flatStaffList.length);
-        setFocusedCell(newCell);
-        setNumberInput('');
-        focusCell(newCell);
-        return;
-      }
-
-      // Enter to trigger edit
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const cellElement = cellRefs.current.get(`cell-${focusedCell.staffIndex}-${focusedCell.dayIndex}`);
-        if (cellElement) {
-          cellElement.click();
-        }
-        return;
-      }
-
-      // Escape to clear focus
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setFocusedCell(null);
-        setNumberInput('');
-        return;
-      }
+      focusCell(nsi, ndi);
     },
-    [focusedCell, numberInput, flatStaffList.length]
+    [visibleStaff.length, focusCell],
   );
 
-  const focusCell = (cell: GridCell) => {
-    const cellElement = cellRefs.current.get(`cell-${cell.staffIndex}-${cell.dayIndex}`);
-    if (cellElement) {
-      cellElement.focus();
-    }
-  };
+  const getStaffShifts = useCallback(
+    (staffId: string, date: string): ShiftItem[] =>
+      (shifts || [])
+        .filter(
+          (s) =>
+            s?.shift_date === date &&
+            (s?.assigned_staff || []).some((a) => a?.user_id === staffId),
+        )
+        .map((s) => ({
+          id: s.id,
+          start_time: s.start_time,
+          end_time: s.end_time,
+          job_role_name: s.job_role_name,
+        })),
+    [shifts],
+  );
 
-  // Attach keyboard listener
-  useEffect(() => {
-    if (focusedCell) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [focusedCell, handleKeyDown]);
+  const weeklyHours = useCallback(
+    (staffId: string) =>
+      (shifts || [])
+        .filter((s) => (s?.assigned_staff || []).some((a) => a?.user_id === staffId))
+        .reduce((acc, s) => acc + calcHours(s.start_time, s.end_time), 0),
+    [shifts],
+  );
 
-  // If no departments exist, show empty state
+  const toggleDept = useCallback((d: string) => {
+    setExpandedDepts((prev) => {
+      const next = new Set(prev);
+      next.has(d) ? next.delete(d) : next.add(d);
+      return next;
+    });
+  }, []);
+
   if (departmentList.length === 0) {
     return (
       <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-12 text-center">
@@ -225,97 +158,106 @@ export function RotaGrid({
     );
   }
 
+  // siCursor tracks visible-staff index across all expanded depts, reset each render
+  let siCursor = 0;
+
   return (
-    <div className="w-full overflow-x-auto bg-white rounded-lg border border-zinc-200" ref={gridRef}>
-      <div className="w-full min-w-[700px]" onKeyDown={handleKeyDown}>
-        {/* Header Row */}
+    <div className="w-full overflow-x-auto bg-white rounded-lg border border-zinc-200">
+      <div className="w-full min-w-[760px]">
+        {/* Header row */}
         <div className="flex sticky top-0 z-10 bg-zinc-50 border-b-2 border-zinc-300">
-          <div className="w-36 shrink-0 px-3 py-1.5 font-semibold text-xs text-zinc-500 uppercase tracking-wide sticky left-0 bg-zinc-50 border-r border-zinc-200 z-20">
+          <div className="w-40 shrink-0 px-3 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wide sticky left-0 bg-zinc-50 border-r border-zinc-200 z-20">
             Staff
           </div>
-          {DAYS_OF_WEEK.map((dayName, dayIndex) => {
-            const dayDate = new Date(weekStart);
-            dayDate.setDate(dayDate.getDate() + dayIndex);
+          {DAYS_OF_WEEK.map((dayName, di) => {
+            const d = new Date(weekStart);
+            d.setDate(d.getDate() + di);
             return (
-              <div
-                key={dayIndex}
-                className="flex-1 min-w-[90px] px-2 py-1.5 border-r border-zinc-200 text-center"
-              >
+              <div key={di} className="flex-1 min-w-[100px] px-2 py-1.5 border-r border-zinc-200 text-center">
                 <div className="text-xs font-semibold text-zinc-500 uppercase">{dayName.slice(0, 3)}</div>
-                <div className="text-sm font-bold text-zinc-900">{dayDate.getDate()}</div>
+                <div className="text-sm font-bold text-zinc-900">{d.getDate()}</div>
               </div>
             );
           })}
+          <div className="w-14 shrink-0 px-2 py-1.5 text-center">
+            <div className="text-xs font-semibold text-zinc-500 uppercase">Hrs</div>
+          </div>
         </div>
 
-        {/* Department Sections */}
+        {/* Department sections */}
         {departmentList.map((deptName) => {
-          const deptMembers = departments[deptName] || [];
-          if (deptMembers.length === 0) return null;
-
-          const isExpanded = expandedDepartments.has(deptName);
+          const members = gridStructure[deptName] || [];
+          if (members.length === 0) return null;
+          const isExpanded = expandedDepts.has(deptName);
+          const deptRole = (jobRoles || []).find(
+            (r) => r.name === deptName || r.department === deptName,
+          );
+          const deptColor = deptRole?.colour ?? '#94a3b8';
 
           return (
             <div key={deptName}>
-              {/* Department Header */}
+              {/* Dept header */}
               <div
                 className="flex items-center w-full bg-zinc-100 border-t border-b border-zinc-200 cursor-pointer hover:bg-zinc-200 transition-colors"
-                onClick={() => toggleDepartment(deptName)}
+                style={{ borderLeft: `4px solid ${deptColor}` }}
+                onClick={() => toggleDept(deptName)}
               >
-                <div className="w-36 shrink-0 px-3 py-1 flex items-center gap-1.5 border-r border-zinc-200">
+                <div className="w-40 shrink-0 px-3 py-1 flex items-center gap-1.5 border-r border-zinc-200">
                   {isExpanded ? (
                     <ChevronDown className="w-3 h-3 text-zinc-500 shrink-0" />
                   ) : (
                     <ChevronRight className="w-3 h-3 text-zinc-500 shrink-0" />
                   )}
-                  <span className="text-xs font-bold text-zinc-800 uppercase tracking-wide truncate">{deptName}</span>
-                  <span className="text-xs text-zinc-500 shrink-0">({deptMembers.length})</span>
+                  <span className="text-xs font-bold text-zinc-800 uppercase tracking-wide truncate">
+                    {deptName}
+                  </span>
+                  <span className="text-xs text-zinc-500 shrink-0">({members.length})</span>
                 </div>
                 <div className="flex-1" />
               </div>
 
-              {/* Staff Rows */}
+              {/* Staff rows */}
               {isExpanded &&
-                deptMembers.map((mapping) => {
-                  if (!mapping || !mapping.user_id) return null;
-                  const userName = mapping.full_name || 'Unnamed user';
-                  const globalStaffIndex = flatStaffList.findIndex((s) => s?.user_id === mapping.user_id);
+                members.map((mapping) => {
+                  if (!mapping?.user_id) return null;
+                  const si = siCursor++;
+                  const userName = mapping.full_name || 'Unknown';
+                  const hrs = weeklyHours(mapping.user_id);
+                  const roleColor = jobRoleMap.get(mapping.job_role_id)?.colour ?? '#3b82f6';
+
                   return (
-                    <div key={mapping.user_id} className="flex border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
-                      <div className="w-36 shrink-0 px-3 py-1 text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-20 truncate">
+                    <div key={mapping.user_id} className="flex border-b border-zinc-100">
+                      <div className="w-40 shrink-0 px-3 flex items-center text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-10 truncate">
                         {userName}
                       </div>
-                      {DAYS_OF_WEEK.map((_, dayIndex) => {
-                        const dayDate = new Date(weekStart);
-                        dayDate.setDate(dayDate.getDate() + dayIndex);
-                        const dateStr = dayDate.toISOString().split('T')[0];
-                        const staffShifts = getStaffShifts(mapping.user_id, dateStr);
-                        const cellKey = `cell-${globalStaffIndex}-${dayIndex}`;
-                        const isFocused = focusedCell?.staffIndex === globalStaffIndex && focusedCell?.dayIndex === dayIndex;
+                      {DAYS_OF_WEEK.map((_, di) => {
+                        const d = new Date(weekStart);
+                        d.setDate(d.getDate() + di);
+                        const dateStr = d.toISOString().split('T')[0];
+                        const cellShifts = getStaffShifts(mapping.user_id, dateStr);
+                        const isActive = activeCell?.si === si && activeCell?.di === di;
 
                         return (
-                          <div
+                          <ShiftGridCell
                             key={`${mapping.user_id}-${dateStr}`}
-                            className={`flex-1 min-w-[90px] px-1.5 py-1 border-r border-zinc-200 ${isFocused ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : ''}`}
-                            ref={(el) => {
-                              if (el) cellRefs.current.set(cellKey, el);
-                            }}
-                            tabIndex={isFocused ? 0 : -1}
-                            onClick={() => setFocusedCell({ staffIndex: globalStaffIndex, dayIndex })}
-                            onFocus={() => setFocusedCell({ staffIndex: globalStaffIndex, dayIndex })}
-                          >
-                            <ShiftGridCell
-                              staffId={mapping.user_id}
-                              staffName={userName}
-                              date={dateStr}
-                              shifts={staffShifts}
-                              onShiftAdded={onShiftAdded}
-                              onShiftDeleted={onShiftDeleted}
-                              venueId={venueId}
-                            />
-                          </div>
+                            staffId={mapping.user_id}
+                            date={dateStr}
+                            shifts={cellShifts}
+                            jobRoleId={mapping.job_role_id}
+                            roleColor={roleColor}
+                            venueId={venueId}
+                            isActive={isActive}
+                            onActivate={() => setActiveCell({ si, di })}
+                            onShiftSaved={onShiftAdded}
+                            onShiftDeleted={onShiftDeleted}
+                            onNavigate={(dir) => navigate(si, di, dir)}
+                            registerRef={(el) => cellRefs.current.set(`${si}-${di}`, el)}
+                          />
                         );
                       })}
+                      <div className="w-14 shrink-0 flex items-center justify-center text-xs font-mono text-zinc-500">
+                        {hrs > 0 ? `${hrs.toFixed(1)}h` : '–'}
+                      </div>
                     </div>
                   );
                 })}
@@ -324,9 +266,8 @@ export function RotaGrid({
         })}
       </div>
 
-      {/* Keyboard Hints */}
       <div className="px-3 py-1.5 bg-zinc-50 border-t border-zinc-200 text-xs text-zinc-500">
-        <strong>Keyboard:</strong> Numbers for time • Tab/Shift+Tab for days • Arrow keys for rows • Enter to edit • Esc to clear
+        <strong>Keyboard:</strong> Click or ↵ / type a number to add a shift · Tab / Shift+Tab moves between days · Arrow keys move between staff · Esc to cancel
       </div>
     </div>
   );
