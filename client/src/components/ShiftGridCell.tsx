@@ -288,6 +288,7 @@ export function ShiftGridCell({
           </p>
         </div>
       ) : (
+        <>
         {saveError && (
           <p className="text-[9px] text-red-600 leading-tight px-0.5 pb-0.5 break-all">{saveError}</p>
         )}
@@ -320,6 +321,7 @@ export function ShiftGridCell({
             ))
           )}
         </div>
+        </>
       )}
     </div>
   );
