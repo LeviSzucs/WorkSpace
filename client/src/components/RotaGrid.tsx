@@ -163,10 +163,10 @@ export function RotaGrid({
 
   return (
     <div className="w-full overflow-x-auto bg-white rounded-lg border border-zinc-200">
-      <div className="w-full min-w-[760px]">
+      <div className="w-full min-w-[1320px]">
         {/* Header row */}
         <div className="flex sticky top-0 z-10 bg-zinc-50 border-b-2 border-zinc-300">
-          <div className="w-40 shrink-0 px-3 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wide sticky left-0 bg-zinc-50 border-r border-zinc-200 z-20">
+          <div className="w-28 shrink-0 px-3 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wide sticky left-0 bg-zinc-50 border-r border-zinc-200 z-20">
             Staff
           </div>
           {DAYS_OF_WEEK.map((dayName, di) => {
@@ -202,7 +202,7 @@ export function RotaGrid({
                 style={{ borderLeft: `4px solid ${deptColor}` }}
                 onClick={() => toggleDept(deptName)}
               >
-                <div className="w-40 shrink-0 px-3 py-1 flex items-center gap-1.5 border-r border-zinc-200">
+                <div className="w-28 shrink-0 px-3 py-1 flex items-center gap-1.5 border-r border-zinc-200">
                   {isExpanded ? (
                     <ChevronDown className="w-3 h-3 text-zinc-500 shrink-0" />
                   ) : (
@@ -227,7 +227,7 @@ export function RotaGrid({
 
                   return (
                     <div key={mapping.user_id} className="flex border-b border-zinc-100">
-                      <div className="w-40 shrink-0 px-3 flex items-center text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-10 truncate">
+                      <div className="w-28 shrink-0 px-3 flex items-center text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-10 truncate">
                         {userName}
                       </div>
                       {DAYS_OF_WEEK.map((_, di) => {
