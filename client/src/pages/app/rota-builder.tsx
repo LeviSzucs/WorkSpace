@@ -126,22 +126,24 @@ export default function RotaBuilder() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-zinc-700 mb-1">Select Venue</label>
-            <select
-              value={selectedVenue || ''}
-              onChange={(e) => setSelectedVenue(e.target.value)}
-              className="w-full sm:w-56 px-2.5 py-1.5 text-sm rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-900 focus:outline-none focus:bg-white focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all"
-            >
-              {venues.map((venue) => (
-                <option key={venue.id} value={venue.id}>
-                  {venue.name}
-                </option>
-              ))}
-            </select>
+        {venues.length > 1 && (
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Venue</label>
+              <select
+                value={selectedVenue || ''}
+                onChange={(e) => setSelectedVenue(e.target.value)}
+                className="w-full sm:w-56 px-2.5 py-1.5 text-sm rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-900 focus:outline-none focus:bg-white focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all"
+              >
+                {venues.map((venue) => (
+                  <option key={venue.id} value={venue.id}>
+                    {venue.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Management Summary - Forecasts & Budgets */}

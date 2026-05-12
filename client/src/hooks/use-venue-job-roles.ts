@@ -33,7 +33,7 @@ export function useVenueJobRoles(venueId: string | null) {
         //        ORDER BY name
         const { data, error: fetchError } = await supabase
           .from('job_roles')
-          .select('id, name, venue_id, colour')
+          .select('*')
           .eq('venue_id', venueId)
           .order('name', { ascending: true });
 
