@@ -38,12 +38,6 @@ interface RotaGridProps {
   onShiftDeleted: () => void;
 }
 
-function calcHours(start: string, end: string): number {
-  const [sh, sm] = start.split(':').map(Number);
-  const [eh, em] = end.split(':').map(Number);
-  return Math.max(0, (eh * 60 + em - (sh * 60 + sm)) / 60);
-}
-
 export function RotaGrid({
   staffJobRoles,
   shifts,
@@ -134,14 +128,6 @@ export function RotaGrid({
     [shifts],
   );
 
-  const weeklyHours = useCallback(
-    (staffId: string) =>
-      (shifts || [])
-        .filter((s) => (s?.assigned_staff || []).some((a) => a?.user_id === staffId))
-        .reduce((acc, s) => acc + calcHours(s.start_time, s.end_time), 0),
-    [shifts],
-  );
-
   const toggleDept = useCallback((d: string) => {
     setExpandedDepts((prev) => {
       const next = new Set(prev);
@@ -162,26 +148,23 @@ export function RotaGrid({
   let siCursor = 0;
 
   return (
-    <div className="w-full overflow-x-auto bg-white rounded-lg border border-zinc-200">
-      <div className="w-full min-w-[1320px]">
+    <div className="w-full bg-white rounded-lg border border-zinc-200">
+      <div className="w-full">
         {/* Header row */}
         <div className="flex sticky top-0 z-10 bg-zinc-50 border-b-2 border-zinc-300">
-          <div className="w-28 shrink-0 px-3 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wide sticky left-0 bg-zinc-50 border-r border-zinc-200 z-20">
+          <div className="w-40 shrink-0 px-3 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wide sticky left-0 bg-zinc-50 border-r border-zinc-200 z-20">
             Staff
           </div>
           {DAYS_OF_WEEK.map((dayName, di) => {
             const d = new Date(weekStart);
             d.setDate(d.getDate() + di);
             return (
-              <div key={di} className="flex-1 min-w-[100px] px-2 py-1.5 border-r border-zinc-200 text-center">
+              <div key={di} className="flex-1 px-2 py-1.5 border-r border-zinc-200 text-center min-w-0">
                 <div className="text-xs font-semibold text-zinc-500 uppercase">{dayName.slice(0, 3)}</div>
                 <div className="text-sm font-bold text-zinc-900">{d.getDate()}</div>
               </div>
             );
           })}
-          <div className="w-14 shrink-0 px-2 py-1.5 text-center">
-            <div className="text-xs font-semibold text-zinc-500 uppercase">Hrs</div>
-          </div>
         </div>
 
         {/* Department sections */}
@@ -202,7 +185,7 @@ export function RotaGrid({
                 style={{ borderLeft: `4px solid ${deptColor}` }}
                 onClick={() => toggleDept(deptName)}
               >
-                <div className="w-28 shrink-0 px-3 py-1 flex items-center gap-1.5 border-r border-zinc-200">
+                <div className="w-40 shrink-0 px-3 py-1 flex items-center gap-1.5 border-r border-zinc-200">
                   {isExpanded ? (
                     <ChevronDown className="w-3 h-3 text-zinc-500 shrink-0" />
                   ) : (
@@ -222,12 +205,11 @@ export function RotaGrid({
                   if (!mapping?.user_id) return null;
                   const si = siCursor++;
                   const userName = mapping.full_name || 'Unknown';
-                  const hrs = weeklyHours(mapping.user_id);
                   const roleColor = jobRoleMap.get(mapping.job_role_id)?.colour ?? '#3b82f6';
 
                   return (
                     <div key={mapping.user_id} className="flex border-b border-zinc-100">
-                      <div className="w-28 shrink-0 px-3 flex items-center text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-10 truncate">
+                      <div className="w-40 shrink-0 px-3 py-1 flex items-center text-sm text-zinc-900 sticky left-0 bg-white border-r border-zinc-200 z-10 truncate">
                         {userName}
                       </div>
                       {DAYS_OF_WEEK.map((_, di) => {
@@ -255,9 +237,6 @@ export function RotaGrid({
                           />
                         );
                       })}
-                      <div className="w-14 shrink-0 flex items-center justify-center text-xs font-mono text-zinc-500">
-                        {hrs > 0 ? `${hrs.toFixed(1)}h` : '–'}
-                      </div>
                     </div>
                   );
                 })}

@@ -46,15 +46,13 @@ export function ShiftGridCell({
   const [editing, setEditing] = useState(false);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
-  const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const startRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLInputElement>(null);
-
-  // Sync refs so blur handler sees current values without stale closure issues
+  // Sync refs so blur/navigate handlers see current values without stale closures
   const editingRef = useRef(false);
   const savingRef = useRef(false);
 
@@ -69,7 +67,6 @@ export function ShiftGridCell({
   const openEditor = useCallback(() => {
     setStartTime('09:00');
     setEndTime('17:00');
-    setError(null);
     editingRef.current = true;
     setEditing(true);
     requestAnimationFrame(() => startRef.current?.focus());
@@ -78,27 +75,17 @@ export function ShiftGridCell({
   const closeEditor = useCallback(() => {
     editingRef.current = false;
     setEditing(false);
-    setError(null);
     containerRef.current?.focus();
   }, []);
 
+  // Fire-and-forget: caller closes the editor and navigates before calling this.
+  // On failure shows a red flash on the cell so the user knows to re-enter.
   const save = useCallback(
-    async (startVal: string, endVal: string, andThen?: () => void) => {
-      if (savingRef.current) return;
-      if (startVal === endVal) {
-        setError('Start and end must be different');
-        return;
-      }
-
+    async (startVal: string, endVal: string) => {
+      if (savingRef.current || startVal === endVal) return;
       savingRef.current = true;
-      setSaving(true);
-      setError(null);
-      // Close editor immediately so the grid feels instant
-      editingRef.current = false;
-      setEditing(false);
 
-      // Hospitality shifts can cross midnight (e.g. 19:00–02:00)
-      // If end < start lexicographically, end is on the next calendar day
+      // Hospitality shifts cross midnight: 19:00–02:00 ends on the next day
       const crossesMidnight = endVal < startVal;
       let endDate = date;
       if (crossesMidnight) {
@@ -115,7 +102,6 @@ export function ShiftGridCell({
             starts_at: `${date}T${startVal}:00`,
             ends_at: `${endDate}T${endVal}:00`,
             job_role_id: jobRoleId,
-            status: 'DRAFT',
           })
           .select('id')
           .single();
@@ -127,29 +113,59 @@ export function ShiftGridCell({
         if (assignErr) throw assignErr;
 
         onShiftSaved();
-        andThen?.();
       } catch (err) {
-        // Re-open editor so user can correct and retry
-        editingRef.current = true;
-        setEditing(true);
-        setError(err instanceof Error ? err.message : 'Failed to save');
+        console.error('[ShiftGridCell] Save failed:', err);
+        setSaveError(true);
+        setTimeout(() => setSaveError(false), 2500);
       } finally {
         savingRef.current = false;
-        setSaving(false);
       }
     },
     [venueId, date, jobRoleId, staffId, onShiftSaved],
+  );
+
+  // Close + save + move right/left  — Tab always navigates instantly
+  const commitAndMove = useCallback(
+    (dir: 'right' | 'left') => {
+      const s = startRef.current?.value ?? startTime;
+      const en = endRef.current?.value ?? endTime;
+      editingRef.current = false;
+      setEditing(false);
+      void save(s, en);
+      onNavigate(dir);
+    },
+    [startTime, endTime, save, onNavigate],
+  );
+
+  // Close + save + stay on cell  — Enter
+  const commitAndStay = useCallback(() => {
+    const s = startRef.current?.value ?? startTime;
+    const en = endRef.current?.value ?? endTime;
+    editingRef.current = false;
+    setEditing(false);
+    void save(s, en);
+    containerRef.current?.focus();
+  }, [startTime, endTime, save]);
+
+  // Auto-save when focus leaves the cell entirely (e.g. clicking another cell)
+  const handleContainerBlur = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      if (!editingRef.current || savingRef.current) return;
+      if (containerRef.current?.contains(e.relatedTarget as Node)) return;
+      const s = startRef.current?.value ?? startTime;
+      const en = endRef.current?.value ?? endTime;
+      editingRef.current = false;
+      setEditing(false);
+      void save(s, en);
+    },
+    [startTime, endTime, save],
   );
 
   const deleteShift = useCallback(
     async (shiftId: string) => {
       setDeletingId(shiftId);
       try {
-        await supabase
-          .from('shift_assignments')
-          .delete()
-          .eq('shift_id', shiftId)
-          .eq('user_id', staffId);
+        await supabase.from('shift_assignments').delete().eq('shift_id', shiftId).eq('user_id', staffId);
         await supabase.from('shifts').delete().eq('id', shiftId);
         onShiftDeleted();
       } finally {
@@ -159,26 +175,9 @@ export function ShiftGridCell({
     [staffId, onShiftDeleted],
   );
 
-  // Auto-save when focus leaves the cell entirely (e.g. clicking another cell)
-  const handleContainerBlur = useCallback(
-    (e: React.FocusEvent<HTMLDivElement>) => {
-      if (!editingRef.current || savingRef.current) return;
-      if (containerRef.current?.contains(e.relatedTarget as Node)) return;
-      const s = startRef.current?.value ?? startTime;
-      const en = endRef.current?.value ?? endTime;
-      if (s !== en) {
-        void save(s, en);
-      } else {
-        closeEditor();
-      }
-    },
-    [startTime, endTime, save, closeEditor],
-  );
-
   const handleContainerKey = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (editing) return;
-
       if (e.key === 'Enter' || /^[0-9]$/.test(e.key)) {
         e.preventDefault();
         openEditor();
@@ -195,26 +194,32 @@ export function ShiftGridCell({
         return;
       }
       const dirs: Record<string, 'right' | 'left' | 'up' | 'down'> = {
-        ArrowRight: 'right',
-        ArrowLeft: 'left',
-        ArrowUp: 'up',
-        ArrowDown: 'down',
+        ArrowRight: 'right', ArrowLeft: 'left', ArrowUp: 'up', ArrowDown: 'down',
       };
-      if (dirs[e.key]) {
-        e.preventDefault();
-        onNavigate(dirs[e.key]);
-      }
+      if (dirs[e.key]) { e.preventDefault(); onNavigate(dirs[e.key]); }
     },
     [editing, shifts, openEditor, deleteShift, onNavigate],
   );
+
+  const timeInputClass =
+    'flex-1 min-w-0 text-xs px-1 py-0.5 rounded border border-blue-300 bg-white font-mono ' +
+    'focus:outline-none focus:ring-1 focus:ring-blue-500 ' +
+    '[&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:hidden';
 
   return (
     <div
       ref={setRef}
       tabIndex={editing ? -1 : 0}
-      className={`flex-1 min-w-[170px] border-r border-zinc-200 p-1 outline-none transition-colors group
-        ${editing ? '' : isActive ? 'bg-blue-50 ring-2 ring-inset ring-blue-400' : 'cursor-pointer hover:bg-zinc-50/80'}
-      `}
+      className={[
+        'flex-1 border-r border-zinc-200 p-1 outline-none transition-colors group',
+        saveError
+          ? 'ring-2 ring-inset ring-red-400 bg-red-50'
+          : editing
+          ? ''
+          : isActive
+          ? 'bg-blue-50 ring-2 ring-inset ring-blue-400'
+          : 'cursor-pointer hover:bg-zinc-50/80',
+      ].join(' ')}
       onFocus={!editing ? onActivate : undefined}
       onClick={!editing ? openEditor : undefined}
       onKeyDown={handleContainerKey}
@@ -222,7 +227,6 @@ export function ShiftGridCell({
     >
       {editing ? (
         <div className="rounded border-2 border-blue-500 bg-blue-50 p-1.5 space-y-1">
-          {error && <p className="text-[10px] text-red-600 leading-tight">{error}</p>}
           <div className="flex items-center gap-1">
             <input
               ref={startRef}
@@ -237,10 +241,9 @@ export function ShiftGridCell({
                   closeEditor();
                 }
               }}
-              disabled={saving}
-              className="flex-1 min-w-0 text-xs px-1 py-0.5 rounded border border-blue-300 bg-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+              className={timeInputClass}
             />
-            <span className="text-xs text-zinc-400 shrink-0">–</span>
+            <span className="text-[10px] text-zinc-400 shrink-0">–</span>
             <input
               ref={endRef}
               type="time"
@@ -249,56 +252,40 @@ export function ShiftGridCell({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  void save(
-                    startRef.current?.value ?? startTime,
-                    endRef.current?.value ?? endTime,
-                    () => containerRef.current?.focus(),
-                  );
+                  commitAndStay();
                 } else if (e.key === 'Tab') {
                   e.preventDefault();
-                  void save(
-                    startRef.current?.value ?? startTime,
-                    endRef.current?.value ?? endTime,
-                    () => onNavigate(e.shiftKey ? 'left' : 'right'),
-                  );
+                  commitAndMove(e.shiftKey ? 'left' : 'right');
                 } else if (e.key === 'Escape') {
                   closeEditor();
                 }
               }}
-              disabled={saving}
-              className="flex-1 min-w-0 text-xs px-1 py-0.5 rounded border border-blue-300 bg-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+              className={timeInputClass}
             />
           </div>
-          <p className="text-[9px] text-zinc-400 leading-none">Tab to save &amp; next · Esc cancel</p>
+          <p className="text-[9px] text-zinc-400 leading-none select-none">
+            Tab saves &amp; next · Esc cancel
+          </p>
         </div>
       ) : (
-        <div className="min-h-[38px] flex flex-col gap-0.5">
+        <div className="min-h-[36px] flex flex-col gap-0.5">
           {shifts.length === 0 ? (
-            <div className="min-h-[38px] flex items-center justify-center select-none">
-              {isActive ? (
-                <span className="text-[10px] text-zinc-400">↵ or type to add</span>
-              ) : (
-                <span className="text-[10px] text-zinc-200 opacity-0 group-hover:opacity-100 transition-opacity">
-                  + add
-                </span>
-              )}
+            <div className="min-h-[36px] flex items-center justify-center select-none">
+              {isActive && <span className="text-[10px] text-zinc-400">↵ to add</span>}
             </div>
           ) : (
             shifts.map((shift) => (
               <div
                 key={shift.id}
-                className="relative rounded px-1.5 py-0.5 flex items-center gap-1 group/chip"
+                className="rounded px-1 py-0.5 flex items-center gap-1 group/chip"
                 style={{ backgroundColor: roleColor + '18', borderLeft: `3px solid ${roleColor}` }}
               >
-                <span className="font-mono text-[11px] text-zinc-800 flex-1 leading-relaxed">
+                <span className="font-mono text-[11px] text-zinc-800 flex-1 leading-relaxed truncate">
                   {fmtTime(shift.start_time)}–{fmtTime(shift.end_time)}
                 </span>
                 <button
                   tabIndex={-1}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteShift(shift.id);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); deleteShift(shift.id); }}
                   disabled={deletingId === shift.id}
                   className="opacity-0 group-hover/chip:opacity-100 transition-opacity shrink-0"
                 >

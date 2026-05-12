@@ -51,13 +51,13 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean, se
 
   const NavContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-zinc-200">
-      <div className="p-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-xl font-display shadow-sm shadow-primary/20">
-            H
+      <div className="px-4 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 shrink-0 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm font-display shadow-sm shadow-primary/20">
+            S
           </div>
-          <span className="font-display font-semibold text-xl tracking-tight text-zinc-900">
-            HospitalityOS
+          <span className="font-display font-semibold text-sm tracking-tight text-zinc-900 truncate">
+            ShiftSync
           </span>
         </div>
         <Button 
@@ -110,7 +110,7 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean, se
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden md:block w-64 h-screen sticky top-0 shrink-0">
+      <div className="hidden md:block w-52 h-screen sticky top-0 shrink-0">
         <NavContent />
       </div>
 
